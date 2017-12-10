@@ -1,0 +1,27 @@
+﻿<Window x:Class="PicOptimizer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:PicOptimizer"
+        mc:Ignorable="d"
+       Title="画像最適化工房" Height="178" Width="460" ResizeMode="CanMinimize"  Drop="Window_Drop" AllowDrop="True">
+    <Window.DataContext>
+        <local:ViewModel/>
+    </Window.DataContext>
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo ProgressValue="{Binding Pvalue.Value}" ProgressState="Normal"/>
+    </Window.TaskbarItemInfo>
+    <Grid>
+        <ProgressBar Value="{Binding Pvalue.Value}" VerticalAlignment="Top" Margin="10,20,10,0" Height="26" Maximum="1" SmallChange="0.001"/>
+        <TextBlock x:Name="deltatext" TextWrapping="Wrap" Text="{Binding DeltaText.Value}" VerticalAlignment="Top" Margin="10,50,0,0" FontSize="18" HorizontalAlignment="Left"/>
+        <TextBlock x:Name="progresstext" HorizontalAlignment="Right" TextWrapping="Wrap" Text="{Binding Ptext.Value}" VerticalAlignment="Top" Margin="0,50,10,0" FontSize="18"/>
+        <GroupBox Header="最適化モード" HorizontalAlignment="Left" Margin="10,0,0,10" VerticalAlignment="Bottom">
+            <ComboBox HorizontalAlignment="Left" VerticalAlignment="Top" Width="100" Margin="5" SelectedIndex="{Binding Index.Value}" IsEnabled="{Binding Idle.Value}">
+                <ComboBoxItem Content="MozJpeg" HorizontalAlignment="Left" Width="99"/>
+                <ComboBoxItem Content="WebP" HorizontalAlignment="Left" Width="99"/>
+                <ComboBoxItem Content="デコード" HorizontalAlignment="Left" Width="99"/>
+            </ComboBox>
+        </GroupBox>
+    </Grid>
+</Window>
