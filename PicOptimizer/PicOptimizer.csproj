@@ -124,13 +124,13 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="cwebp.exe">
+    <Content Include="tools\cwebp.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="dwebp.exe">
+    <Content Include="tools\dwebp.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="jpegtran.exe">
+    <Content Include="tools\jpegtran.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

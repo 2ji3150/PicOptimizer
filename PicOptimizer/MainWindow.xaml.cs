@@ -17,9 +17,9 @@ namespace PicOptimizer {
 
         ViewModel vm = new ViewModel();
 
-        const string webpencode_arg = @"/c cwebp -quiet -lossless -z 9";
-        const string webpdecode_arg = @"/c dwebp";
-        const string mozjpeg_arg1 = @"/c jpegtran -copy all";
+        const string webpencode_arg = @"/c tools\cwebp -quiet -lossless -z 9";
+        const string webpdecode_arg = @"/c tools\dwebp";
+        const string mozjpeg_arg1 = @"/c tools\jpegtran -copy all";
         const string mozjpeg_arg2 = ">";
         const string webparg2 = "-o";
         readonly string[] searchpattern = new string[] { "*.bmp", "*.png", "*.tif", "*.webp" };
