@@ -96,7 +96,7 @@ namespace PicOptimizer {
 
                 files.AsParallel().ForAll(f => {
                     try {
-                        var tempf = Path.GetTempFileName();
+                        var tempf = Path.Combine(Path.GetDirectoryName(f), $"{Guid.NewGuid()}");
                         Process.Start(Psi($"{arg1} {f.WQ()} {arg2} {tempf.WQ()}")).WaitForExit();
                         FileInfo fiI = new FileInfo(f), fiT = new FileInfo(tempf);
                         if (fiT.Length > 0) {
