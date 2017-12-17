@@ -5,22 +5,32 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PicOptimizer"
         mc:Ignorable="d"
-       Title="画像最適化工房" Height="178" Width="460" ResizeMode="CanMinimize"  Drop="Window_Drop" AllowDrop="True">
+       Title="画像最適化工房" ResizeMode="CanMinimize" Height="170" Width="460" Drop="Window_Drop" AllowDrop="True">
     <Window.DataContext>
         <local:ViewModel/>
     </Window.DataContext>
     <Window.TaskbarItemInfo>
         <TaskbarItemInfo ProgressValue="{Binding Pvalue.Value}" ProgressState="Normal"/>
     </Window.TaskbarItemInfo>
-    <Grid>
-        <ProgressBar Value="{Binding Pvalue.Value}" VerticalAlignment="Top" Margin="10,20,10,0" Height="26" Maximum="1" SmallChange="0.001"/>
-        <TextBlock x:Name="deltatext" TextWrapping="Wrap" Text="{Binding DeltaText.Value}" VerticalAlignment="Top" Margin="10,50,0,0" FontSize="18" HorizontalAlignment="Left"/>
-        <TextBlock x:Name="progresstext" HorizontalAlignment="Right" TextWrapping="Wrap" Text="{Binding Ptext.Value}" VerticalAlignment="Top" Margin="0,50,10,0" FontSize="18"/>
-        <GroupBox Header="最適化モード" HorizontalAlignment="Left" Margin="10,0,0,10" VerticalAlignment="Bottom">
-            <ComboBox HorizontalAlignment="Left" VerticalAlignment="Top" Width="100" Margin="5" SelectedIndex="{Binding Index.Value}" IsEnabled="{Binding Idle.Value}">
-                <ComboBoxItem Content="MozJpeg" HorizontalAlignment="Left" Width="99"/>
-                <ComboBoxItem Content="WebP" HorizontalAlignment="Left" Width="99"/>
-                <ComboBoxItem Content="デコード" HorizontalAlignment="Left" Width="99"/>
+    <Grid Margin="10,10,10,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="3*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition />
+            <ColumnDefinition />
+            <ColumnDefinition />
+        </Grid.ColumnDefinitions>
+        <ProgressBar Grid.Row="0" Grid.ColumnSpan="3" Value="{Binding Pvalue.Value}" Maximum="1" SmallChange="0.001"/>
+        <TextBlock Grid.Row="1" Grid.Column="0"  Grid.ColumnSpan="2" x:Name="deltatext" TextWrapping="Wrap" Text="{Binding DeltaText.Value}" HorizontalAlignment="Left" FontSize="22" VerticalAlignment="Center"/>
+        <TextBlock Grid.Row="1" Grid.Column="2" x:Name="progresstext" HorizontalAlignment="Right" TextWrapping="Wrap" Text="{Binding Ptext.Value}" FontSize="22" VerticalAlignment="Center"/>
+        <GroupBox Grid.Row="2" Grid.Column="0" Header="最適化モード" FontSize="12" >
+            <ComboBox Margin="5" SelectedIndex="{Binding Index.Value}" IsEnabled="{Binding Idle.Value}" VerticalAlignment="Center">
+                <ComboBoxItem Content="MozJpeg" HorizontalAlignment="Left" Width="99" FontSize="14"/>
+                <ComboBoxItem Content="WebP" HorizontalAlignment="Left" Width="99" FontSize="14"/>
+                <ComboBoxItem Content="デコード" HorizontalAlignment="Left" Width="99" FontSize="14"/>
             </ComboBox>
         </GroupBox>
     </Grid>
