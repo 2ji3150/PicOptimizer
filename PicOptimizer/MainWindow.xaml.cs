@@ -24,8 +24,6 @@ namespace PicOptimizer {
         const string webparg2 = "-o";
         readonly string[] searchpattern = new string[] { "*.bmp", "*.png", "*.tif", "*.webp" };
         readonly string[] exts = new string[] { ".bmp", ".png", ".tif", ".webp" };
-
-        int total = 0, current = 0;
         long TotalDelta = 0;
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
@@ -53,8 +51,8 @@ namespace PicOptimizer {
                     ext = ".png";
                     break;
             }
-            total = files.Count();
-            if (total > 0) await Processing(files, arg1, arg2, ext);
+            vm.total = files.Count();
+            if (vm.total > 0) await Processing(files, arg1, arg2, ext);
             else {
                 SystemSounds.Asterisk.Play();
                 MessageBox.Show("何も処理されません...");
@@ -92,8 +90,8 @@ namespace PicOptimizer {
         Task Processing(IEnumerable<string> files, string arg1, string arg2, string ext) => Task.Run(() => {
             try {
                 vm.DeltaText.Value = null;
-                vm.Ptext.Value = $"0 / {total}";
-
+                vm.Ptext.Value = $"0 / {vm.total}";
+                int counter = 0;
                 files.AsParallel().ForAll(f => {
                     try {
                         var tempf = Path.Combine(Path.GetDirectoryName(f), $"{Guid.NewGuid()}");
@@ -106,14 +104,13 @@ namespace PicOptimizer {
                             fiI.IsReadOnly = false;
                             fiI.Delete();
                             fiT.MoveTo(Path.ChangeExtension(f, ext));
-                            Interlocked.Increment(ref current);
+                            vm.Current.Value = Interlocked.Increment(ref counter);
                         }
                         else {
                             MessageBox.Show($"error on: {f}");
                             fiT.Delete();
                         }
-                        vm.Pvalue.Value = (double)current / total;
-                        vm.Ptext.Value = $"{current} / {total}";
+
                     }
                     catch (Exception ex) {
                         MessageBox.Show($"{ex.Message}{Environment.NewLine}on: {f}");
@@ -127,8 +124,9 @@ namespace PicOptimizer {
                 SystemSounds.Asterisk.Play();
                 MessageBox.Show("完成しました");
 
-                vm.Pvalue.Value = total = current = 0;
+                vm.total = 0;
                 TotalDelta = 0;
+                vm.Current.Value = 0;
                 vm.Ptext.Value = null;
                 vm.Idle.Value = true;
             }
