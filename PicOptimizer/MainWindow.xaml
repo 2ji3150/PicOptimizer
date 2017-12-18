@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PicOptimizer"
         mc:Ignorable="d"
-       Title="画像最適化工房" ResizeMode="CanMinimize" Height="170" Width="460" Drop="Window_Drop" AllowDrop="True">
+       Title="画像最適化工房" MinHeight="160" MinWidth="400" Height="180" Width="400" Drop="Window_Drop" AllowDrop="True">
     <Window.DataContext>
         <local:ViewModel/>
     </Window.DataContext>
@@ -26,11 +26,11 @@
         <ProgressBar Grid.Row="0" Grid.ColumnSpan="3" Value="{Binding Pvalue.Value}" Maximum="1" SmallChange="0.001"/>
         <TextBlock Grid.Row="1" Grid.Column="0"  Grid.ColumnSpan="2" x:Name="deltatext" TextWrapping="Wrap" Text="{Binding DeltaText.Value}" HorizontalAlignment="Left" FontSize="22" VerticalAlignment="Center"/>
         <TextBlock Grid.Row="1" Grid.Column="2" x:Name="progresstext" HorizontalAlignment="Right" TextWrapping="Wrap" Text="{Binding Ptext.Value}" FontSize="22" VerticalAlignment="Center"/>
-        <GroupBox Grid.Row="2" Grid.Column="0" Header="最適化モード" FontSize="12" >
+        <GroupBox Grid.Row="2" Grid.Column="0" Header="最適化モード" FontSize="12" VerticalAlignment="Center" >
             <ComboBox Margin="5" SelectedIndex="{Binding Index.Value}" IsEnabled="{Binding Idle.Value}" VerticalAlignment="Center">
-                <ComboBoxItem Content="MozJpeg" HorizontalAlignment="Left" Width="99" FontSize="14"/>
-                <ComboBoxItem Content="WebP" HorizontalAlignment="Left" Width="99" FontSize="14"/>
-                <ComboBoxItem Content="デコード" HorizontalAlignment="Left" Width="99" FontSize="14"/>
+                <ComboBoxItem Content="MozJpeg" HorizontalAlignment="Left" Width="100" FontSize="14"/>
+                <ComboBoxItem Content="WebP" HorizontalAlignment="Left" Width="100" FontSize="14"/>
+                <ComboBoxItem Content="デコード" HorizontalAlignment="Left" Width="100" FontSize="14"/>
             </ComboBox>
         </GroupBox>
     </Grid>
