@@ -90,7 +90,6 @@ namespace PicOptimizer {
         Task Processing(IEnumerable<string> files, string arg1, string arg2, string ext) => Task.Run(() => {
             try {
                 vm.DeltaText.Value = null;
-                vm.Ptext.Value = $"0 / {vm.total}";
                 int counter = 0;
                 files.AsParallel().ForAll(f => {
                     try {
@@ -127,7 +126,6 @@ namespace PicOptimizer {
                 vm.total = 0;
                 TotalDelta = 0;
                 vm.Current.Value = 0;
-                vm.Ptext.Value = null;
                 vm.Idle.Value = true;
             }
         });

@@ -11,8 +11,8 @@ namespace PicOptimizer {
         public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
         public ReactiveProperty<string> DeltaText { get; } = new ReactiveProperty<string>();
         public ViewModel() {
-            Pvalue = Current.Where(x => x > 0).Select(x => x / total).ToReactiveProperty();
-            Ptext = Current.Where(x => x > 0).Select(x => $"{x} / {total}").ToReactiveProperty();
+            Pvalue = Current.Select(x => total > 0 ? x / total : x).ToReactiveProperty();
+            Ptext = Current.Select(x => total > 0 ? $"{x} / {total}" : null).ToReactiveProperty();
         }
     }
 }
