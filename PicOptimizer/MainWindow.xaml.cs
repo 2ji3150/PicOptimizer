@@ -19,7 +19,7 @@ namespace PicOptimizer {
 
         const string webpencode_arg = @"/c tools\cwebp -quiet -lossless -z 9";
         const string webpdecode_arg = @"/c tools\dwebp";
-        const string mozjpeg_arg1 = @"/c tools\jpegtran -copy all";
+        const string mozjpeg_arg1 = @"/c tools\jpegtran-static -copy all";
         const string mozjpeg_arg2 = ">";
         const string webparg2 = "-o";
         readonly string[] searchpattern = new string[] { "*.bmp", "*.png", "*.tif", "*.webp" };
@@ -88,6 +88,8 @@ namespace PicOptimizer {
 
 
         Task Processing(IEnumerable<string> files, string arg1, string arg2, string ext) => Task.Run(() => {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
             try {
                 vm.DeltaText.Value = null;
                 int counter = 0;
@@ -120,9 +122,9 @@ namespace PicOptimizer {
                 MessageBox.Show(ex.Message);
             }
             finally {
+                sw.Stop();
                 SystemSounds.Asterisk.Play();
-                MessageBox.Show("完成しました");
-
+                MessageBox.Show($"完成しました\n\nミリ秒単位の経過時間の合計 ={sw.ElapsedMilliseconds}");
                 vm.total = 0;
                 TotalDelta = 0;
                 vm.Current.Value = 0;
