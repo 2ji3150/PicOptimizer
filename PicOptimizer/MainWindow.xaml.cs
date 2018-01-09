@@ -37,6 +37,10 @@ namespace PicOptimizer {
                     arg1 = mozjpeg_arg1;
                     arg2 = mozjpeg_arg2;
                     ext = ".jpg";
+                    if (files.Count() == 0) {
+                        files = GetFiles(dropdata, ".jpeg");
+                        ext = ".jpeg";
+                    }
                     break;
                 case 1:// Webp
                     files = GetFilesForWebp(dropdata);
