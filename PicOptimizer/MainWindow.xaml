@@ -29,8 +29,8 @@
         <GroupBox Grid.Row="2" Grid.Column="0" Header="最適化モード" FontSize="12" VerticalAlignment="Center" >
             <ComboBox Margin="5" SelectedIndex="{Binding Index.Value}" IsEnabled="{Binding Idle.Value}" VerticalAlignment="Center">
                 <ComboBoxItem Content="MozJpeg" HorizontalAlignment="Left" Width="167" FontSize="14"/>
-                <ComboBoxItem Content="WebP" HorizontalAlignment="Left" Width="167" FontSize="14"/>
-                <ComboBoxItem Content="デコード" HorizontalAlignment="Left" Width="167" FontSize="14"/>
+                <ComboBoxItem Content="Webp Lossless" HorizontalAlignment="Left" Width="167" FontSize="14"/>
+                <ComboBoxItem Content="Webp to PNG" HorizontalAlignment="Left" Width="167" FontSize="14"/>
             </ComboBox>
         </GroupBox>
     </Grid>

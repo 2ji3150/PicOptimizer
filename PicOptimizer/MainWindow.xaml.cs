@@ -42,13 +42,13 @@ namespace PicOptimizer {
                         ext = ".jpeg";
                     }
                     break;
-                case 1:// Webp
+                case 1:// Webp Lossless
                     files = GetFilesForWebp(dropdata);
                     arg1 = webpencode_arg;
                     arg2 = webparg2;
                     ext = ".webp";
                     break;
-                case 2:// Decode
+                case 2:// Decode Webp
                     files = GetFiles(dropdata, ".webp");
                     arg1 = webpdecode_arg;
                     arg2 = webparg2;
@@ -80,7 +80,7 @@ namespace PicOptimizer {
         IEnumerable<string> GetFilesForWebp(string[] data) {
             foreach (var d in data) {
                 if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                    foreach (var f in searchpattern.AsParallel().SelectMany(sp => Directory.EnumerateFiles(d, sp))) {
+                    foreach (var f in searchpattern.AsParallel().SelectMany(sp => Directory.EnumerateFiles(d, sp,SearchOption.AllDirectories))) {
                         yield return f;
                     }
                 }
