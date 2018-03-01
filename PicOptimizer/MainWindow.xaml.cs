@@ -17,12 +17,11 @@ namespace PicOptimizer {
 
         ViewModel vm = new ViewModel();
 
-        const string webpencode_arg = @"/c tools\cwebp -quiet -lossless -z 9";
-        const string webpdecode_arg = @"/c tools\dwebp";
+        const string webpencode_arg = @"/c tools\cwebp -quiet -lossless -z 9 -mt";
+        const string webpdecode_arg = @"/c tools\dwebp -mt";
         const string mozjpeg_arg1 = @"/c tools\jpegtran-static -copy all";
         const string mozjpeg_arg2 = ">";
         const string webparg2 = "-o";
-        readonly string[] exts = new string[] { ".bmp", ".png", ".tif", ".webp" };
         long TotalDelta = 0;
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
@@ -38,7 +37,7 @@ namespace PicOptimizer {
                     ext = ".jpg";
                     break;
                 case 1:// Webp Lossless
-                    files = GetFiles(new string[] { "*.bmp", "*.png", "*.tif", "*.webp" }, dropdata);
+                    files = GetFiles(new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }, dropdata);
                     arg1 = webpencode_arg;
                     arg2 = webparg2;
                     ext = ".webp";
@@ -59,10 +58,10 @@ namespace PicOptimizer {
             vm.Idle.Value = true;
         }
 
-        IEnumerable<string> GetFiles(string[] searchpattern, string[] data) {
+        IEnumerable<string> GetFiles(string[] exts, string[] data) {
             foreach (var d in data) {
                 if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                    foreach (var f in searchpattern.AsParallel().SelectMany(sp => Directory.EnumerateFiles(d, sp, SearchOption.AllDirectories))) {
+                    foreach (var f in exts.AsParallel().SelectMany(sp => Directory.EnumerateFiles(d, $"*{sp}", SearchOption.AllDirectories))) {
                         yield return f;
                     }
                 }
