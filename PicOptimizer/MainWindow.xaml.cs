@@ -22,7 +22,6 @@ namespace PicOptimizer {
         const string mozjpeg_arg1 = @"/c tools\jpegtran-static -copy all";
         const string mozjpeg_arg2 = ">";
         const string webparg2 = "-o";
-        readonly string[] searchpattern = new string[] { "*.bmp", "*.png", "*.tif", "*.webp" };
         readonly string[] exts = new string[] { ".bmp", ".png", ".tif", ".webp" };
         long TotalDelta = 0;
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
@@ -33,23 +32,19 @@ namespace PicOptimizer {
             string arg1, arg2, ext;
             switch (vm.Index.Value) {
                 default://MozJpeg
-                    files = GetFiles(dropdata, ".jpg");
+                    files = GetFiles(new string[] { ".jpg", ".jpeg" }, dropdata);
                     arg1 = mozjpeg_arg1;
                     arg2 = mozjpeg_arg2;
                     ext = ".jpg";
-                    if (files.Count() == 0) {
-                        files = GetFiles(dropdata, ".jpeg");
-                        ext = ".jpeg";
-                    }
                     break;
                 case 1:// Webp Lossless
-                    files = GetFilesForWebp(dropdata);
+                    files = GetFiles(new string[] { "*.bmp", "*.png", "*.tif", "*.webp" }, dropdata);
                     arg1 = webpencode_arg;
                     arg2 = webparg2;
                     ext = ".webp";
                     break;
                 case 2:// Decode Webp
-                    files = GetFiles(dropdata, ".webp");
+                    files = GetFiles(new string[] { ".webp" }, dropdata);
                     arg1 = webpdecode_arg;
                     arg2 = webparg2;
                     ext = ".png";
@@ -64,32 +59,16 @@ namespace PicOptimizer {
             vm.Idle.Value = true;
         }
 
-
-
-        IEnumerable<string> GetFiles(string[] data, string ext) {
+        IEnumerable<string> GetFiles(string[] searchpattern, string[] data) {
             foreach (var d in data) {
                 if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                    foreach (var f in Directory.EnumerateFiles(d, $"*{ext}", SearchOption.AllDirectories)) {
-                        yield return f;
-                    }
-                }
-                else if (d.EndsWith(ext, StringComparison.OrdinalIgnoreCase)) yield return d;
-            }
-        }
-
-        IEnumerable<string> GetFilesForWebp(string[] data) {
-            foreach (var d in data) {
-                if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                    foreach (var f in searchpattern.AsParallel().SelectMany(sp => Directory.EnumerateFiles(d, sp,SearchOption.AllDirectories))) {
+                    foreach (var f in searchpattern.AsParallel().SelectMany(sp => Directory.EnumerateFiles(d, sp, SearchOption.AllDirectories))) {
                         yield return f;
                     }
                 }
                 else if (exts.Contains(Path.GetExtension(d).ToLower())) yield return d;
             }
         }
-
-
-
 
         Task Processing(IEnumerable<string> files, string arg1, string arg2, string ext) => Task.Run(() => {
             Stopwatch sw = new Stopwatch();
@@ -137,8 +116,6 @@ namespace PicOptimizer {
         });
 
         ProcessStartInfo Psi(string arg) => new ProcessStartInfo() { FileName = "cmd.exe", Arguments = arg, UseShellExecute = false, CreateNoWindow = true };
-
-
 
         readonly string[] SizeSuffixes = { "バイト", "KB", "MB", "GB", "TB" };
         public string SizeSuffix(Int64 value, int decimalPlaces = 1) {
