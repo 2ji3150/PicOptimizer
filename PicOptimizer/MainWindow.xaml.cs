@@ -25,6 +25,10 @@ namespace PicOptimizer {
         List<(string tempfile, string newfile, ProcessStartInfo psi, FileInfo fiI)> ProcessList = new List<(string tempfile, string newfile, ProcessStartInfo psi, FileInfo fiI)>();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            Directory.CreateDirectory("GTEMP");
+            ProcessList.Clear();
             vm.Idle.Value = false;
             var dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
             IEnumerable<string> files;
@@ -57,16 +61,26 @@ namespace PicOptimizer {
                     await Processing();
                     break;
                 case 3:// manga
+                    if (Directory.Exists("ATEMP")) Directory.Delete("ATEMP", true);
+                    Directory.CreateDirectory("ATEMP");
                     files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata);
                     vm.total = files.Count();
                     if (vm.total <= 0) return;
                     vm.DeltaText.Value = "フェーズ１：展開";
+                    Directory.CreateDirectory("ATEMP");
                     List<(string orgarchive, string tempdir)> archivelist = new List<(string orgarchive, string tempdir)>();
-                    foreach (var archive in files) {
-                        var tempdir = Path.Combine("ATEMP", $"{Guid.NewGuid()}");
-                        archivelist.Add((archive, tempdir));
-                        Process.Start(Psi($@"/c tools\7z x {archive.WQ()} -o {tempdir.WQ()}")).WaitForExit();
+                    int i = 0;
+                    foreach (var f in files) {
+                        vm.IncrementCounter();
+                        var tempdir = Path.Combine("ATEMP", (++i).ToString());
+                        Directory.CreateDirectory(tempdir);
+                        archivelist.Add((f, tempdir));
+                        Process.Start(Psi($@"/c tools\7z x {f.WQ()} -o{tempdir.WQ()}")).WaitForExit();
                     }
+
+                    vm.Reset();
+
+                    vm.DeltaText.Value = "フェーズ2：画像圧縮";
 
                     var jpgfiles = GetFiles(new string[] { ".jpg", ".jpeg" }, new string[] { "ATEMP" });
                     foreach (var jf in jpgfiles) {
@@ -82,10 +96,29 @@ namespace PicOptimizer {
                     }
                     await Processing();
 
+                    vm.Reset();
+                    vm.DeltaText.Value = "フェーズ3：アーカイブ圧縮";
+                    vm.total = archivelist.Count();
+                    foreach (var a in archivelist) {
+                        var temparchive = $"{a.tempdir}.rar";
+                        Process.Start(Psi($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temparchive} {a.tempdir}\")).WaitForExit();
+                        FileInfo fiI = new FileInfo(a.orgarchive), fiT = new FileInfo(temparchive);
+                        if (fiT.Length > 0) {
+                            var delta = fiI.Length - fiT.Length;
+                            if (delta != 0) vm.AddDelta(delta);
+                            fiI.IsReadOnly = false;
+                            fiI.Delete();
+                            fiT.MoveTo(Path.ChangeExtension(a.orgarchive, ".rar"));
+                            vm.IncrementCounter();
+                        }
+                    }
+                    Directory.Delete("ATEMP", true);
                     break;
             }
-
-
+            sw.Stop();
+            SystemSounds.Asterisk.Play();
+            MessageBox.Show($"完成しました\n\nミリ秒単位の経過時間の合計 ={sw.ElapsedMilliseconds}");
+            vm.Reset();
             vm.Idle.Value = true;
         }
 
@@ -99,43 +132,6 @@ namespace PicOptimizer {
             }
         }
 
-        Task Processing(IEnumerable<string> files, string arg1, string arg2, string ext) => Task.Run(() => {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-            try {
-                vm.DeltaText.Value = null;
-                int counter = 0;
-                files.AsParallel().ForAll(f => {
-                    try {
-                        var tempf = Path.Combine(Path.GetDirectoryName(f), $"{Guid.NewGuid()}");
-                        Process.Start(Psi($"{arg1} {f.WQ()} {arg2} {tempf.WQ()}")).WaitForExit();
-                        FileInfo fiI = new FileInfo(f), fiT = new FileInfo(tempf);
-                        if (fiT.Length > 0) {
-                            var delta = fiI.Length - fiT.Length;
-                            if (delta != 0) vm.AddDelta(delta);
-                            fiI.IsReadOnly = false;
-                            fiI.Delete();
-                            fiT.MoveTo(Path.ChangeExtension(f, ext));
-                            vm.Current.Value = Interlocked.Increment(ref counter);
-                        } else {
-                            MessageBox.Show($"error on: {fiI.Name}");
-                            fiT.Delete();
-                        }
-
-                    } catch (Exception ex) {
-                        MessageBox.Show($"{ex.Message}{Environment.NewLine}on: {f}");
-                    }
-                });
-            } catch (Exception ex) {
-                MessageBox.Show(ex.Message);
-            } finally {
-                sw.Stop();
-                SystemSounds.Asterisk.Play();
-                MessageBox.Show($"完成しました\n\nミリ秒単位の経過時間の合計 ={sw.ElapsedMilliseconds}");
-                vm.Reset();
-
-            }
-        });
 
         Task Processing() => Task.Run(() => {
             vm.total = ProcessList.Count();
@@ -162,7 +158,7 @@ namespace PicOptimizer {
         ProcessStartInfo Psi(string arg) => new ProcessStartInfo() { FileName = "cmd.exe", Arguments = arg, UseShellExecute = false, CreateNoWindow = true };
 
 
-        string GetTempFilePath() => Path.Combine("GTEMP", $"{Guid.NewGuid()}");
+        string GetTempFilePath() => Path.Combine("GTEMP", Guid.NewGuid().ToString());
     }
 
 

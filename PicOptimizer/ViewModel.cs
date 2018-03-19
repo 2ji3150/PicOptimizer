@@ -42,7 +42,7 @@ namespace PicOptimizer {
             total = counter = 0;
             totaldelta = 0;
             Current.Value = 0;
-            Idle.Value = true;
+        
         }
     }
 }
