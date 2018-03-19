@@ -58,11 +58,29 @@ namespace PicOptimizer {
                     break;
                 case 3:// manga
                     files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata);
-                    foreach (var f in files) {
+                    vm.total = files.Count();
+                    if (vm.total <= 0) return;
+                    vm.DeltaText.Value = "フェーズ１：展開";
+                    List<(string orgarchive, string tempdir)> archivelist = new List<(string orgarchive, string tempdir)>();
+                    foreach (var archive in files) {
                         var tempdir = Path.Combine("ATEMP", $"{Guid.NewGuid()}");
-                        //uncompress each
+                        archivelist.Add((archive, tempdir));
+                        Process.Start(Psi($@"/c tools\7z x {archive.WQ()} -o {tempdir.WQ()}")).WaitForExit();
                     }
 
+                    var jpgfiles = GetFiles(new string[] { ".jpg", ".jpeg" }, new string[] { "ATEMP" });
+                    foreach (var jf in jpgfiles) {
+                        var tempf = GetTempFilePath();
+                        var newf = Path.ChangeExtension(jf, ".jpg");
+                        ProcessList.Add((tempf, newf, Psi($"{mozjpeg} {jf.WQ()} > {tempf.WQ()}"), new FileInfo(jf)));
+                    }
+                    var losslessfiles = GetFiles(new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }, new string[] { "ATEMP" });
+                    foreach (var lf in losslessfiles) {
+                        var tempf = GetTempFilePath();
+                        var newf = Path.ChangeExtension(lf, ".webp");
+                        ProcessList.Add((tempf, newf, Psi($"{enwebp} {lf.WQ()} -o {tempf.WQ()}"), new FileInfo(lf)));
+                    }
+                    await Processing();
 
                     break;
             }
