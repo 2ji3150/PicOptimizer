@@ -17,7 +17,7 @@ namespace PicOptimizer {
 
         ViewModel vm = new ViewModel();
 
-        const string enwebp = @"/c tools\cwebp -quiet -lossless -z 9 -mt";
+        const string enwebp = @"/c tools\cwebp -quiet -lossless -m 6 -q 100 -mt";
         const string unwebp = @"/c tools\dwebp -mt";
         const string mozjpeg = @"/c tools\jpegtran-static -copy all";
         const string mozjpeg_arg2 = ">";
@@ -71,11 +71,11 @@ namespace PicOptimizer {
                     List<(string orgarchive, string tempdir)> archivelist = new List<(string orgarchive, string tempdir)>();
                     int i = 0;
                     foreach (var f in files) {
-                        vm.IncrementCounter();
                         var tempdir = Path.Combine("ATEMP", (++i).ToString());
                         Directory.CreateDirectory(tempdir);
                         archivelist.Add((f, tempdir));
                         Process.Start(Psi($@"/c tools\7z x {f.WQ()} -o{tempdir.WQ()}")).WaitForExit();
+                        vm.IncrementCounter();
                     }
 
                     vm.Reset();
@@ -136,7 +136,7 @@ namespace PicOptimizer {
         Task Processing() => Task.Run(() => {
             vm.total = ProcessList.Count();
             if (vm.total <= 0) return;
-            Parallel.ForEach(ProcessList, p => {
+            ProcessList.AsParallel().ForAll(p => {
                 try {
                     Process.Start(p.psi).WaitForExit();
                     var fiT = new FileInfo(p.tempfile);
