@@ -17,44 +17,57 @@ namespace PicOptimizer {
 
         ViewModel vm = new ViewModel();
 
-        const string webpencode_arg = @"/c tools\cwebp -quiet -lossless -z 9 -mt";
-        const string webpdecode_arg = @"/c tools\dwebp -mt";
-        const string mozjpeg_arg1 = @"/c tools\jpegtran-static -copy all";
+        const string enwebp = @"/c tools\cwebp -quiet -lossless -z 9 -mt";
+        const string unwebp = @"/c tools\dwebp -mt";
+        const string mozjpeg = @"/c tools\jpegtran-static -copy all";
         const string mozjpeg_arg2 = ">";
         const string webparg2 = "-o";
-        long TotalDelta = 0;
+        List<(string tempfile, string newfile, ProcessStartInfo psi, FileInfo fiI)> ProcessList = new List<(string tempfile, string newfile, ProcessStartInfo psi, FileInfo fiI)>();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
             vm.Idle.Value = false;
             var dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
             IEnumerable<string> files;
-            string arg1, arg2, ext;
             switch (vm.Index.Value) {
                 default://MozJpeg
                     files = GetFiles(new string[] { ".jpg", ".jpeg" }, dropdata);
-                    arg1 = mozjpeg_arg1;
-                    arg2 = mozjpeg_arg2;
-                    ext = ".jpg";
+                    foreach (var f in files) {
+                        var tempf = GetTempFilePath();
+                        var newf = Path.ChangeExtension(f, ".jpg");
+                        ProcessList.Add((tempf, newf, Psi($"{mozjpeg} {f.WQ()} > {tempf.WQ()}"), new FileInfo(f)));
+                    }
+                    await Processing();
                     break;
                 case 1:// Webp Lossless
                     files = GetFiles(new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }, dropdata);
-                    arg1 = webpencode_arg;
-                    arg2 = webparg2;
-                    ext = ".webp";
+                    foreach (var f in files) {
+                        var tempf = GetTempFilePath();
+                        var newf = Path.ChangeExtension(f, ".webp");
+                        ProcessList.Add((tempf, newf, Psi($"{enwebp} {f.WQ()} -o {tempf.WQ()}"), new FileInfo(f)));
+                    }
+                    await Processing();
                     break;
                 case 2:// Decode Webp
                     files = GetFiles(new string[] { ".webp" }, dropdata);
-                    arg1 = webpdecode_arg;
-                    arg2 = webparg2;
-                    ext = ".png";
+                    foreach (var f in files) {
+                        var tempf = GetTempFilePath();
+                        var newf = Path.ChangeExtension(f, ".png");
+                        ProcessList.Add((tempf, newf, Psi($"{unwebp} {f.WQ()} -o {tempf.WQ()}"), new FileInfo(f)));
+                    }
+                    await Processing();
+                    break;
+                case 3:// manga
+                    files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata);
+                    foreach (var f in files) {
+                        var tempdir = Path.Combine("ATEMP", $"{Guid.NewGuid()}");
+                        //uncompress each
+                    }
+
+
                     break;
             }
-            vm.total = files.Count();
-            if (vm.total > 0) await Processing(files, arg1, arg2, ext);
-            else {
-                SystemSounds.Asterisk.Play();
-                MessageBox.Show("何も処理されません...");
-            }
+
+
             vm.Idle.Value = true;
         }
 
@@ -64,8 +77,7 @@ namespace PicOptimizer {
                     foreach (var f in exts.AsParallel().SelectMany(sp => Directory.EnumerateFiles(d, $"*{sp}", SearchOption.AllDirectories))) {
                         yield return f;
                     }
-                }
-                else if (exts.Contains(Path.GetExtension(d).ToLower())) yield return d;
+                } else if (exts.Contains(Path.GetExtension(d).ToLower())) yield return d;
             }
         }
 
@@ -82,59 +94,64 @@ namespace PicOptimizer {
                         FileInfo fiI = new FileInfo(f), fiT = new FileInfo(tempf);
                         if (fiT.Length > 0) {
                             var delta = fiI.Length - fiT.Length;
-                            if (delta != 0) Interlocked.Add(ref TotalDelta, fiI.Length - fiT.Length);
-                            vm.DeltaText.Value = $"{SizeSuffix(TotalDelta)} を減少した";
+                            if (delta != 0) vm.AddDelta(delta);
                             fiI.IsReadOnly = false;
                             fiI.Delete();
                             fiT.MoveTo(Path.ChangeExtension(f, ext));
                             vm.Current.Value = Interlocked.Increment(ref counter);
-                        }
-                        else {
-                            MessageBox.Show($"error on: {f}");
+                        } else {
+                            MessageBox.Show($"error on: {fiI.Name}");
                             fiT.Delete();
                         }
 
-                    }
-                    catch (Exception ex) {
+                    } catch (Exception ex) {
                         MessageBox.Show($"{ex.Message}{Environment.NewLine}on: {f}");
                     }
                 });
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 MessageBox.Show(ex.Message);
-            }
-            finally {
+            } finally {
                 sw.Stop();
                 SystemSounds.Asterisk.Play();
                 MessageBox.Show($"完成しました\n\nミリ秒単位の経過時間の合計 ={sw.ElapsedMilliseconds}");
-                vm.total = 0;
-                TotalDelta = 0;
-                vm.Current.Value = 0;
-                vm.Idle.Value = true;
+                vm.Reset();
+
             }
+        });
+
+        Task Processing() => Task.Run(() => {
+            vm.total = ProcessList.Count();
+            if (vm.total <= 0) return;
+            Parallel.ForEach(ProcessList, p => {
+                try {
+                    Process.Start(p.psi).WaitForExit();
+                    var fiT = new FileInfo(p.tempfile);
+                    if (fiT.Length > 0) {
+                        var delta = p.fiI.Length - fiT.Length;
+                        if (delta != 0) vm.AddDelta(delta);
+                        p.fiI.IsReadOnly = false;
+                        p.fiI.Delete();
+                        fiT.MoveTo(p.newfile);
+                        vm.IncrementCounter();
+
+                    }
+                } catch (Exception ex) {
+                    MessageBox.Show($"{ex.Message}{Environment.NewLine}on: {p.fiI.Name}");
+                }
+            });
         });
 
         ProcessStartInfo Psi(string arg) => new ProcessStartInfo() { FileName = "cmd.exe", Arguments = arg, UseShellExecute = false, CreateNoWindow = true };
 
-        readonly string[] SizeSuffixes = { "バイト", "KB", "MB", "GB", "TB" };
-        public string SizeSuffix(Int64 value, int decimalPlaces = 1) {
-            if (decimalPlaces < 0) throw new ArgumentOutOfRangeException("decimalPlaces");
-            if (value < 0) return $"-{SizeSuffix(-value)}";
-            if (value == 0) return "0 バイト";
-            int mag = (int)Math.Log(value, 1024);
-            decimal adjustedSize = (decimal)value / (1L << (mag * 10));
-            if (Math.Round(adjustedSize, decimalPlaces) >= 1000) {
-                mag += 1;
-                adjustedSize /= 1024;
-            }
-            Console.WriteLine(adjustedSize.ToString());
-            return $"{adjustedSize:n}{decimalPlaces} {SizeSuffixes[mag]}";
-        }
+
+        string GetTempFilePath() => Path.Combine("GTEMP", $"{Guid.NewGuid()}");
     }
+
 
     public static class StringExtensionMethods {
         public static string WQ(this string text) => $@"""{text}""";
     }
+
 
 
 }
