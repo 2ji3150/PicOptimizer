@@ -20,8 +20,6 @@ namespace PicOptimizer {
         const string enwebp = @"/c tools\cwebp -quiet -lossless -m 6 -q 100 -mt";
         const string unwebp = @"/c tools\dwebp -mt";
         const string mozjpeg = @"/c tools\jpegtran-static -copy all";
-        const string mozjpeg_arg2 = ">";
-        const string webparg2 = "-o";
         List<(string tempfile, string newfile, ProcessStartInfo psi, FileInfo fiI)> ProcessList = new List<(string tempfile, string newfile, ProcessStartInfo psi, FileInfo fiI)>();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
