@@ -16,7 +16,7 @@ namespace PicOptimizer {
         public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
         public ReactiveProperty<string> DeltaText { get; } = new ReactiveProperty<string>();
         public ViewModel() {
-            Pvalue = Current.Select(x => total > 0 ? x / total : x).ToReactiveProperty();
+            Pvalue = Current.Select(x => total > 0 ? x / total : 0).ToReactiveProperty();
             Ptext = Current.Select(x => total > 0 ? $"{x} / {total}" : null).ToReactiveProperty();
             DeltaText = Current.Select(x => total > 0 ? $"{SizeSuffix(totaldelta)} を減少した" : null).ToReactiveProperty();
         }
@@ -42,7 +42,6 @@ namespace PicOptimizer {
             total = counter = 0;
             totaldelta = 0;
             Current.Value = 0;
-        
         }
     }
 }

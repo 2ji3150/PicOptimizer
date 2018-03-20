@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Media;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -97,16 +96,16 @@ namespace PicOptimizer {
                     vm.Reset();
                     vm.DeltaText.Value = "フェーズ3：アーカイブ圧縮";
                     vm.total = archivelist.Count();
-                    foreach (var a in archivelist) {
-                        var temparchive = $"{a.tempdir}.rar";
-                        Process.Start(Psi($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temparchive} {a.tempdir}\")).WaitForExit();
-                        FileInfo fiI = new FileInfo(a.orgarchive), fiT = new FileInfo(temparchive);
+                    foreach (var (orgarchive, tempdir) in archivelist) {
+                        var temparchive = $"{tempdir}.rar";
+                        Process.Start(Psi($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temparchive} {tempdir}\")).WaitForExit();
+                        FileInfo fiI = new FileInfo(orgarchive), fiT = new FileInfo(temparchive);
                         if (fiT.Length > 0) {
                             var delta = fiI.Length - fiT.Length;
                             if (delta != 0) vm.AddDelta(delta);
                             fiI.IsReadOnly = false;
                             fiI.Delete();
-                            fiT.MoveTo(Path.ChangeExtension(a.orgarchive, ".rar"));
+                            fiT.MoveTo(Path.ChangeExtension(orgarchive, ".rar"));
                             vm.IncrementCounter();
                         }
                     }
@@ -115,7 +114,7 @@ namespace PicOptimizer {
             }
             sw.Stop();
             SystemSounds.Asterisk.Play();
-            MessageBox.Show($"完成しました\n\nミリ秒単位の経過時間の合計 ={sw.ElapsedMilliseconds}");
+            MessageBox.Show($"完成しました\n\n秒単位の経過時間の合計 ={sw.ElapsedMilliseconds / 1000}");
             vm.Reset();
             vm.Idle.Value = true;
         }
@@ -154,7 +153,6 @@ namespace PicOptimizer {
         });
 
         ProcessStartInfo Psi(string arg) => new ProcessStartInfo() { FileName = "cmd.exe", Arguments = arg, UseShellExecute = false, CreateNoWindow = true };
-
 
         string GetTempFilePath() => Path.Combine("GTEMP", Guid.NewGuid().ToString());
     }
