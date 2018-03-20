@@ -20,6 +20,7 @@ namespace PicOptimizer {
         const string unwebp = @"/c tools\dwebp -mt";
         const string mozjpeg = @"/c tools\jpegtran-static -copy all";
         List<(string tempfile, string newfile, ProcessStartInfo psi, FileInfo fiI)> ProcessList = new List<(string tempfile, string newfile, ProcessStartInfo psi, FileInfo fiI)>();
+        TimeSpan ts;
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
             Stopwatch sw = new Stopwatch();
@@ -114,7 +115,8 @@ namespace PicOptimizer {
             }
             sw.Stop();
             SystemSounds.Asterisk.Play();
-            MessageBox.Show($"完成しました\n\n秒単位の経過時間の合計 ={sw.ElapsedMilliseconds / 1000}");
+            ts = sw.Elapsed;
+            MessageBox.Show($"完成しました\n\n処理にかかった時間 ={ts.Hours}時間 {ts.Minutes}分 {ts.Seconds}秒 {ts.Milliseconds}ミリ秒");
             vm.Reset();
             vm.Idle.Value = true;
         }
