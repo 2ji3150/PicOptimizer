@@ -64,6 +64,7 @@ namespace PicOptimizer {
                     files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata);
                     vm.total = files.Count();
                     if (vm.total <= 0) return;
+                    #region フェーズ１：展開
                     vm.DeltaText.Value = "フェーズ１：展開";
                     Directory.CreateDirectory("ATEMP");
                     List<(string orgarchive, string tempdir)> archivelist = new List<(string orgarchive, string tempdir)>();
@@ -73,12 +74,13 @@ namespace PicOptimizer {
                         Directory.CreateDirectory(tempdir);
                         archivelist.Add((f, tempdir));
                         Process.Start(Psi($@"/c tools\7z x {f.WQ()} -o{tempdir.WQ()}")).WaitForExit();
-                        vm.IncrementCounter();
+                        vm.Current.Value++;
                     }
-
                     vm.Reset();
+                    #endregion
+                    #region フェーズ２：画像圧縮
 
-                    vm.DeltaText.Value = "フェーズ2：画像圧縮";
+                    vm.DeltaText.Value = "フェーズ２：画像圧縮";
 
                     var jpgfiles = GetFiles(new string[] { ".jpg", ".jpeg" }, new string[] { "ATEMP" });
                     foreach (var jf in jpgfiles) {
@@ -93,30 +95,38 @@ namespace PicOptimizer {
                         ProcessList.Add((tempf, newf, Psi($"{enwebp} {lf.WQ()} -o {tempf.WQ()}"), new FileInfo(lf)));
                     }
                     await Processing();
-
                     vm.Reset();
-                    vm.DeltaText.Value = "フェーズ3：アーカイブ圧縮";
+                    #endregion
+                    #region フェーズ３：アーカイブ圧縮
+                    vm.DeltaText.Value = "フェーズ３：アーカイブ圧縮";
                     vm.total = archivelist.Count();
+
                     foreach (var (orgarchive, tempdir) in archivelist) {
                         var temparchive = $"{tempdir}.rar";
-                        Process.Start(Psi($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temparchive} {tempdir}\")).WaitForExit();
-                        FileInfo fiI = new FileInfo(orgarchive), fiT = new FileInfo(temparchive);
-                        if (fiT.Length > 0) {
-                            var delta = fiI.Length - fiT.Length;
-                            if (delta != 0) vm.AddDelta(delta);
-                            fiI.IsReadOnly = false;
-                            fiI.Delete();
-                            fiT.MoveTo(Path.ChangeExtension(orgarchive, ".rar"));
-                            vm.IncrementCounter();
+                        try {
+                            Process.Start(Psi($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temparchive} {tempdir}\")).WaitForExit();
+                            FileInfo fiI = new FileInfo(orgarchive), fiT = new FileInfo(temparchive);
+                            if (fiT.Length > 0) {
+                                var delta = fiI.Length - fiT.Length;
+                                if (delta != 0) vm.AddDelta(delta);
+                                fiI.IsReadOnly = false;
+                                fiI.Delete();
+                                fiT.MoveTo(Path.ChangeExtension(orgarchive, ".rar"));
+                            }
+                        } catch (Exception ex) {
+                            MessageBox.Show($"{ex.Message}{Environment.NewLine}on: {orgarchive}");
+                        } finally {
+                            vm.Current.Value++;
                         }
                     }
                     Directory.Delete("ATEMP", true);
+                    #endregion
                     break;
             }
             sw.Stop();
             SystemSounds.Asterisk.Play();
             ts = sw.Elapsed;
-            MessageBox.Show($"完成しました\n\n処理にかかった時間 ={ts.Hours}時間 {ts.Minutes}分 {ts.Seconds}秒 {ts.Milliseconds}ミリ秒");
+            if (files.Count() != 0) MessageBox.Show($"完成しました\n\n処理にかかった時間 = {ts.Hours} 時間 {ts.Minutes} 分 {ts.Seconds} 秒 {ts.Milliseconds} ミリ秒");
             vm.Reset();
             vm.Idle.Value = true;
         }
@@ -145,11 +155,11 @@ namespace PicOptimizer {
                         p.fiI.IsReadOnly = false;
                         p.fiI.Delete();
                         fiT.MoveTo(p.newfile);
-                        vm.IncrementCounter();
-
                     }
                 } catch (Exception ex) {
                     MessageBox.Show($"{ex.Message}{Environment.NewLine}on: {p.fiI.Name}");
+                } finally {
+                    vm.IncrementCounter();
                 }
             });
         });
