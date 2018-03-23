@@ -25,6 +25,8 @@ namespace PicOptimizer {
         private async void Window_Drop(object sender, DragEventArgs e) {
             Stopwatch sw = new Stopwatch();
             sw.Start();
+            vm.DeltaText.Value = "処理中...";
+
             Directory.CreateDirectory("GTEMP");
             ProcessList.Clear();
             vm.Idle.Value = false;
@@ -61,7 +63,7 @@ namespace PicOptimizer {
                 case 3:// manga
                     if (Directory.Exists("ATEMP")) Directory.Delete("ATEMP", true);
                     Directory.CreateDirectory("ATEMP");
-                    files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata);
+                    files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).ToList();
                     vm.total = files.Count();
                     if (vm.total <= 0) return;
                     #region フェーズ１：展開
@@ -77,7 +79,9 @@ namespace PicOptimizer {
                         vm.Current.Value++;
                     }
                     vm.Reset();
+
                     #endregion
+
                     #region フェーズ２：画像圧縮
 
                     vm.DeltaText.Value = "フェーズ２：画像圧縮";
@@ -97,6 +101,7 @@ namespace PicOptimizer {
                     await Processing();
                     vm.Reset();
                     #endregion
+
                     #region フェーズ３：アーカイブ圧縮
                     vm.DeltaText.Value = "フェーズ３：アーカイブ圧縮";
                     vm.total = archivelist.Count();
@@ -121,6 +126,8 @@ namespace PicOptimizer {
                     }
                     Directory.Delete("ATEMP", true);
                     #endregion
+
+
                     break;
             }
             sw.Stop();
