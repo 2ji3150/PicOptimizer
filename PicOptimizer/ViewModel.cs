@@ -2,13 +2,12 @@
 using System;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Threading;
 
 namespace PicOptimizer {
     public class ViewModel {
         public int total = 0;
         int counter = 0;
-        long totaldelta = 0;
+        public long totaldelta = 0;
         public ReactiveProperty<int> Index { get; } = new ReactiveProperty<int>();
         public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<bool> Idle { get; } = new ReactiveProperty<bool>(true);
@@ -36,8 +35,8 @@ namespace PicOptimizer {
             return $"{adjustedSize:n}{decimalPlaces} {SizeSuffixes[mag]}";
         }
 
-        public void AddDelta(long delta) => Interlocked.Add(ref totaldelta, delta);
-        public void IncrementCounter() => Current.Value = Interlocked.Increment(ref counter);
+       // public void AddDelta(long delta) => Interlocked.Add(ref totaldelta, delta);
+       // public void IncrementCounter() => Current.Value = Interlocked.Increment(ref counter);
         public void Reset() {
             total = counter = 0;
             totaldelta = 0;
