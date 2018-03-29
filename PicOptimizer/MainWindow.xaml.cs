@@ -38,7 +38,7 @@ namespace PicOptimizer {
                     tasks = GetFiles(new string[] { ".jpg", ".jpeg" }, dropdata).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".jpg");
-                        return TaskAsync(tempf, newf, Psi($"{mozjpeg} {f.WQ()} > {tempf.WQ()}"), new FileInfo(f));
+                        return TaskAsync(tempf, newf, $"{mozjpeg} {f.WQ()} > {tempf.WQ()}", new FileInfo(f));
                     }).ToArray();
                     vm.total = tasks.Count();
 
@@ -50,7 +50,7 @@ namespace PicOptimizer {
                     tasks = GetFiles(new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }, dropdata).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".webp");
-                        return TaskAsync(tempf, newf, Psi($"{enwebp} {f.WQ()} -o {tempf.WQ()}"), new FileInfo(f));
+                        return TaskAsync(tempf, newf, $"{enwebp} {f.WQ()} -o {tempf.WQ()}", new FileInfo(f));
                     }).ToArray();
                     vm.total = tasks.Count();
                     if (vm.total <= 0) return;
@@ -60,7 +60,7 @@ namespace PicOptimizer {
                     tasks = GetFiles(new string[] { ".webp" }, dropdata).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".png");
-                        return TaskAsync(tempf, newf, Psi($"{unwebp} {f.WQ()} -o {tempf.WQ()}"), new FileInfo(f));
+                        return TaskAsync(tempf, newf, $"{unwebp} {f.WQ()} -o {tempf.WQ()}", new FileInfo(f));
                     }).ToArray();
                     vm.total = tasks.Count();
                     if (vm.total <= 0) return;
@@ -70,20 +70,20 @@ namespace PicOptimizer {
                     if (Directory.Exists("ATEMP")) Directory.Delete("ATEMP", true);
                     Directory.CreateDirectory("ATEMP");
                     int i = 0;
-                    var archivelist = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).Select(f => {
+                    var extracttask = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).Select(async f => {
                         var tempdir = Path.Combine("ATEMP", (++i).ToString());
                         Directory.CreateDirectory(tempdir);
-                        Process.Start(Psi($@"/c tools\7z x {f.WQ()} -o{tempdir.WQ()}")).WaitForExit();
+                        await RunProcessAsync($@"/c tools\7z x {f.WQ()} -o{tempdir.WQ()}");
                         vm.Current.Value++;
+
                         return (f, tempdir);
                     }).ToArray();
+                    var archivelist = Task.WhenAll(extracttask).Result;
                     vm.total = archivelist.Count();
                     if (vm.total <= 0) return;
                     #region フェーズ１：展開
                     vm.DeltaText.Value = "フェーズ１：展開";
                     Directory.CreateDirectory("ATEMP");
-
-
                     vm.Reset();
 
                     #endregion
@@ -95,11 +95,11 @@ namespace PicOptimizer {
                     tasks = GetFiles(new string[] { ".jpg", ".jpeg" }, new string[] { "ATEMP" }).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".jpg");
-                        return TaskAsync(tempf, newf, Psi($"{mozjpeg} {f.WQ()} > {tempf.WQ()}"), new FileInfo(f));
+                        return TaskAsync(tempf, newf, $"{mozjpeg} {f.WQ()} > {tempf.WQ()}", new FileInfo(f));
                     }).Concat(GetFiles(new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }, new string[] { "ATEMP" }).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".webp");
-                        return TaskAsync(tempf, newf, Psi($"{enwebp} {f.WQ()} -o {tempf.WQ()}"), new FileInfo(f));
+                        return TaskAsync(tempf, newf, $"{enwebp} {f.WQ()} -o {tempf.WQ()}", new FileInfo(f));
                     })).ToArray();
                     vm.total = tasks.Count();
                     if (vm.total <= 0) {
@@ -118,7 +118,7 @@ namespace PicOptimizer {
                     foreach (var (orgarchive, tempdir) in archivelist) {
                         var temparchive = $"{tempdir}.rar";
                         try {
-                            Process.Start(Psi($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temparchive} {tempdir}\")).WaitForExit();
+                            await RunProcessAsync($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temparchive} {tempdir}\");
                             FileInfo fiI = new FileInfo(orgarchive), fiT = new FileInfo(temparchive);
                             if (fiT.Length > 0) {
                                 var delta = fiI.Length - fiT.Length;
@@ -154,66 +154,59 @@ namespace PicOptimizer {
         IEnumerable<string> GetFiles(string[] exts, string[] data) {
             foreach (var d in data) {
                 if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                    foreach (var f in exts.SelectMany(sp => Directory.EnumerateFiles(d, $"*{sp}", SearchOption.AllDirectories))) {
+                    var files = Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).AsParallel().Where(f => exts.Contains(Path.GetExtension(f).ToLower()));
+                    foreach (var f in files) {
                         yield return f;
                     }
                 } else if (exts.Contains(Path.GetExtension(d).ToLower())) yield return d;
             }
         }
 
-        /*
-        async Task Processing() => await Task.Run(() => {
-            vm.total = ProcessList.Count();
-            if (vm.total <= 0) return;
-            ProcessList.AsParallel().ForAll(p => {
-                try {
-                    Process.Start(p.psi).WaitForExit();
-                    var fiT = new FileInfo(p.tempfile);
-                    if (fiT.Length > 0) {
-                        var delta = p.fiI.Length - fiT.Length;
-                        //     if (delta != 0) vm.AddDelta(delta);
-                        p.fiI.IsReadOnly = false;
-                        p.fiI.Delete();
-                        fiT.MoveTo(p.newfile);
-                    }
-                } catch (Exception ex) {
-                    MessageBox.Show($"{ex.Message}{Environment.NewLine}on: {p.fiI.Name}");
-                } finally {
-                    //  vm.IncrementCounter();
-                }
-            });
-        });
-        */
-
-        async Task TaskAsync(string tempfile, string newfile, ProcessStartInfo psi, FileInfo fiI) {
+        async Task TaskAsync(string tempfile, string newfile, string arg, FileInfo fiI) {
             await sem.WaitAsync();
             try {
 
-                await Task.Run(() => {
-                    Process.Start(psi).WaitForExit();
+                await RunProcessAsync(arg);
 
-                    var fiT = new FileInfo(tempfile);
-                    if (fiT.Length > 0) {
-                        var delta = fiI.Length - fiT.Length;
-                        if (delta != 0) vm.totaldelta += delta;
-                        fiI.IsReadOnly = false;
-                        fiI.Delete();
-                        fiT.MoveTo(newfile);
-                    }
-
-                });
-
+                var fiT = new FileInfo(tempfile);
+                if (fiT.Length > 0) {
+                    var delta = fiI.Length - fiT.Length;
+                    if (delta != 0) vm.totaldelta += delta;
+                    fiI.IsReadOnly = false;
+                    fiI.Delete();
+                    fiT.MoveTo(newfile);
+                }
 
             } finally {
 
-                vm.Current.Value++;
+                vm.IncrementCounter();
                 sem.Release();
 
             }
         }
 
+        Task RunProcessAsync(string arg) {
 
-        ProcessStartInfo Psi(string arg) => new ProcessStartInfo() { FileName = "cmd.exe", Arguments = arg, UseShellExecute = false, CreateNoWindow = true };
+            var tcs = new TaskCompletionSource<bool>();
+
+            var process = new Process {
+                StartInfo = { FileName = "cmd.exe", Arguments = arg, UseShellExecute = false, CreateNoWindow = true },
+                EnableRaisingEvents = true
+            };
+
+            process.Exited += (sender, args) => {
+                tcs.SetResult(true);
+                process.Dispose();
+
+            };
+
+            process.Start();
+
+            return tcs.Task;
+        }
+
+
+        //  ProcessStartInfo Psi(string arg) => new ProcessStartInfo() { FileName = "cmd.exe", Arguments = arg, UseShellExecute = false, CreateNoWindow = true };
 
         string GetTempFilePath() => Path.Combine("GTEMP", Guid.NewGuid().ToString());
     }

@@ -2,6 +2,7 @@
 using System;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Threading;
 
 namespace PicOptimizer {
     public class ViewModel {
@@ -11,12 +12,13 @@ namespace PicOptimizer {
         public ReactiveProperty<int> Index { get; } = new ReactiveProperty<int>();
         public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<bool> Idle { get; } = new ReactiveProperty<bool>(true);
-        public ReactiveProperty<double> Pvalue { get; } = new ReactiveProperty<double>();
-        public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
+        public ReactiveProperty<double> Pvalue { get; }
+        public ReadOnlyReactiveProperty<string> Ptext { get; }
         public ReactiveProperty<string> DeltaText { get; } = new ReactiveProperty<string>();
         public ViewModel() {
+
             Pvalue = Current.Select(x => total > 0 ? x / total : 0).ToReactiveProperty();
-            Ptext = Current.Select(x => total > 0 ? $"{x} / {total}" : null).ToReactiveProperty();
+            Ptext = Current.Select(x => total > 0 ? $"{x} / {total}" : null).ToReadOnlyReactiveProperty();
             DeltaText = Current.Select(x => total > 0 ? $"{SizeSuffix(totaldelta)} を減少した" : null).ToReactiveProperty();
         }
 
@@ -35,8 +37,8 @@ namespace PicOptimizer {
             return $"{adjustedSize:n}{decimalPlaces} {SizeSuffixes[mag]}";
         }
 
-       // public void AddDelta(long delta) => Interlocked.Add(ref totaldelta, delta);
-       // public void IncrementCounter() => Current.Value = Interlocked.Increment(ref counter);
+        public void AddDelta(long delta) => Interlocked.Add(ref totaldelta, delta);
+        public void IncrementCounter() => Current.Value = Interlocked.Increment(ref counter);
         public void Reset() {
             total = counter = 0;
             totaldelta = 0;
