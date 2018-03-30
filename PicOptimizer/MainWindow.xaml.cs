@@ -36,15 +36,20 @@ namespace PicOptimizer {
             string GetTempFilePath() => Path.Combine("GTEMP", Guid.NewGuid().ToString());
 
             Action act(string file, string tempfile, string newfile) => () => {
-                FileInfo fiI = new FileInfo(file), fiT = new FileInfo(tempfile);
-                if (fiT.Length > 0) {
-                    var delta = fiI.Length - fiT.Length;
-                    if (delta != 0) vm.AddDelta(delta);
-                    fiI.IsReadOnly = false;
-                    fiI.Delete();
-                    fiT.MoveTo(newfile);
+                try {
+                    FileInfo fiI = new FileInfo(file), fiT = new FileInfo(tempfile);
+                    if (fiT.Length > 0) {
+                        var delta = fiI.Length - fiT.Length;
+                        if (delta != 0) vm.AddDelta(delta);
+                        fiI.IsReadOnly = false;
+                        fiI.Delete();
+                        fiT.MoveTo(newfile);
+                    }
+                } catch (Exception ex) {
+                    MessageBox.Show($"Error! {file} on {ex.Message}");
+                } finally {
+                    vm.IncrementCounter();
                 }
-                vm.IncrementCounter();
             };
 
 
@@ -85,20 +90,21 @@ namespace PicOptimizer {
                     if (Directory.Exists("ATEMP")) Directory.Delete("ATEMP", true);
                     Directory.CreateDirectory("ATEMP");
                     #region フェーズ１：展開
-
-                    tasks = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).Select(async (f, index) => {
+                    var compresstasks = new List<Task>();
+                    foreach (var (f, index) in GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).Select((archive, index) => (archive, index + 1))) {
                         var tempdir = Path.Combine("ATEMP", index.ToString());
                         Directory.CreateDirectory(tempdir);
                         await RunProcessAsync($@"/c tools\7z x {f.WQ()} -o{tempdir.WQ()}");
-                        vm.Current.Value = index + 1;
+
+                  //      vm.Current.Value = index;
+
+                    }
+                    tasks = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).Select(async (f, index) => {
+
                         return Task.Run(async () => {
                             var tempf = $"{tempdir}.rar";
                             var newf = Path.ChangeExtension(f, ".rar");
-                            try {
-                                await RunProcessAsync($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {tempf} {tempdir}\").ContinueWith(_ => act(f, tempf, newf));
-                            } catch (Exception ex) {
-                                MessageBox.Show($"{ex.Message}{Environment.NewLine}on: {f}");
-                            }
+                            await RunProcessAsync($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {tempf} {tempdir}\").ContinueWith(_ => act(f, tempf, newf));
                         });
                     }).ToArray();
 
@@ -108,10 +114,10 @@ namespace PicOptimizer {
 
                     vm.DeltaText.Value = "フェーズ１：展開";
                     Directory.CreateDirectory("ATEMP");
-                    vm.Reset();
+                    //   vm.Reset();
 
                     #endregion
-
+                    /*
                     #region フェーズ２：画像圧縮
 
                     vm.DeltaText.Value = "フェーズ２：画像圧縮";
@@ -146,7 +152,7 @@ namespace PicOptimizer {
 
                     Directory.Delete("ATEMP", true);
                     #endregion
-
+    */
 
                     break;
             }
@@ -157,6 +163,7 @@ namespace PicOptimizer {
             if (vm.total != 0) MessageBox.Show($"完成しました\n\n処理にかかった時間 = {ts.Hours} 時間 {ts.Minutes} 分 {ts.Seconds} 秒 {ts.Milliseconds} ミリ秒");
             vm.Reset();
             vm.Idle.Value = true;
+            Debug.WriteLine("sine");
         }
 
         IEnumerable<string> GetFiles(string[] exts, string[] data) {
