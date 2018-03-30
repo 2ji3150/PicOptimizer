@@ -35,7 +35,7 @@ namespace PicOptimizer {
             IEnumerable<Task> tasks;
             string GetTempFilePath() => Path.Combine("GTEMP", Guid.NewGuid().ToString());
 
-            Action act(string file, string tempfile, string newfile) => () => {
+            Action ReplaceWithCal(string file, string tempfile, string newfile) => () => {
                 try {
                     FileInfo fiI = new FileInfo(file), fiT = new FileInfo(tempfile);
                     if (fiT.Length > 0) {
@@ -52,6 +52,20 @@ namespace PicOptimizer {
                 }
             };
 
+            Action Replace(string file, string tempfile, string newfile) => () => {
+                try {
+                    FileInfo fiI = new FileInfo(file), fiT = new FileInfo(tempfile);
+                    if (fiT.Length > 0) {
+                        fiI.IsReadOnly = false;
+                        fiI.Delete();
+                        fiT.MoveTo(newfile);
+                    }
+                } catch (Exception ex) {
+                    MessageBox.Show($"Error! {file} on {ex.Message}");
+                } finally {
+                    vm.IncrementCounter();
+                }
+            };
 
 
 
@@ -60,7 +74,7 @@ namespace PicOptimizer {
                     tasks = GetFiles(new string[] { ".jpg", ".jpeg" }, dropdata).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".jpg");
-                        return TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", act(f, tempf, newf));
+                        return TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", ReplaceWithCal(f, tempf, newf));
                     }).ToArray();
                     vm.total = tasks.Count();
                     if (vm.total <= 0) return;
@@ -70,7 +84,7 @@ namespace PicOptimizer {
                     tasks = GetFiles(new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }, dropdata).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".webp");
-                        return TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", act(f, tempf, newf));
+                        return TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", ReplaceWithCal(f, tempf, newf));
                     }).ToArray();
                     vm.total = tasks.Count();
                     if (vm.total <= 0) return;
@@ -80,7 +94,7 @@ namespace PicOptimizer {
                     tasks = GetFiles(new string[] { ".webp" }, dropdata).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".png");
-                        return TaskAsync($"{unwebp} {f.WQ()} -o {tempf.WQ()}", act(f, tempf, newf));
+                        return TaskAsync($"{unwebp} {f.WQ()} -o {tempf.WQ()}", ReplaceWithCal(f, tempf, newf));
                     }).ToArray();
                     vm.total = tasks.Count();
                     if (vm.total <= 0) return;
@@ -89,70 +103,32 @@ namespace PicOptimizer {
                 case 3:// manga
                     if (Directory.Exists("ATEMP")) Directory.Delete("ATEMP", true);
                     Directory.CreateDirectory("ATEMP");
-                    #region フェーズ１：展開
-                    var compresstasks = new List<Task>();
-                    foreach (var (f, index) in GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).Select((archive, index) => (archive, index + 1))) {
+                   
+                    var compresstasklist = new List<Task>();
+                    var optimizetasklist = new List<Task>();
+                    foreach (var (a, index) in GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).Select((archive, index) => (archive, index + 1))) {
                         var tempdir = Path.Combine("ATEMP", index.ToString());
                         Directory.CreateDirectory(tempdir);
-                        await RunProcessAsync($@"/c tools\7z x {f.WQ()} -o{tempdir.WQ()}");
-
-                  //      vm.Current.Value = index;
-
-                    }
-                    tasks = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).Select(async (f, index) => {
-
-                        return Task.Run(async () => {
-                            var tempf = $"{tempdir}.rar";
-                            var newf = Path.ChangeExtension(f, ".rar");
-                            await RunProcessAsync($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {tempf} {tempdir}\").ContinueWith(_ => act(f, tempf, newf));
-                        });
-                    }).ToArray();
-
-                    vm.total = tasks.Count();
-                    if (vm.total <= 0) return;
-
-
-                    vm.DeltaText.Value = "フェーズ１：展開";
-                    Directory.CreateDirectory("ATEMP");
-                    //   vm.Reset();
-
-                    #endregion
-                    /*
-                    #region フェーズ２：画像圧縮
-
-                    vm.DeltaText.Value = "フェーズ２：画像圧縮";
-                 
-                    var compresstask = new List<Task>();
-                    foreach (var f in Directory.EnumerateFiles("ATEMP", "*.*", SearchOption.AllDirectories)) {
-                        var tempf = GetTempFilePath();
-                        var ext = Path.GetExtension(f).ToLower();
-                        if (new string[] { ".jpg", ".jpeg" }.Contains(ext)) {
-                            var newf = Path.ChangeExtension(f, ".jpg");
-                            compresstask.Add(TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", act(f, tempf, newf)));
-                        } else if (new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }.Contains(ext)) {
-                            var newf = Path.ChangeExtension(f, ".webp");
-                            compresstask.Add(TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", act(f, tempf, newf)));
-                        }
+                        await RunProcessAsync($@"/c tools\7z x {a.WQ()} -o{tempdir.WQ()}");
+                        var temprar = $"{tempdir}.rar";
+                        var newrar = Path.ChangeExtension(a, ".rar");
+                        compresstasklist.Add(RunProcessAsync($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temprar} {tempdir}\").ContinueWith(_ => ReplaceWithCal(a, temprar, newrar)));
+                        foreach (var f in Directory.EnumerateFiles(tempdir, "*.*", SearchOption.AllDirectories)) {
+                            var tempf = GetTempFilePath();
+                            var ext = Path.GetExtension(f).ToLower();
+                            if (new string[] { ".jpg", ".jpeg" }.Contains(ext)) {
+                                var newf = Path.ChangeExtension(f, ".jpg");
+                                optimizetasklist.Add(TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", Replace(f, tempf, newf)));
+                            } else if (new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }.Contains(ext)) {
+                                var newf = Path.ChangeExtension(f, ".webp");
+                                optimizetasklist.Add(TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", Replace(f, tempf, newf)));
+                            }
+                        }  
                     }
 
-                    vm.total = compresstask.Count();
-                    if (vm.total <= 0) {
-                        MessageBox.Show("画像がありません");
-                        return;
-                    }
-                    await Task.WhenAll(compresstask);
-
-                    vm.Reset();
-                    #endregion
-
-                    #region フェーズ３：アーカイブ圧縮
-                    vm.DeltaText.Value = "フェーズ３：アーカイブ圧縮";
-                    vm.total = tasks.Count();
-                    await Task.WhenAll(tasks);
-
+                    await Task.WhenAll(optimizetasklist).ContinueWith(t => compresstasklist);// problemtic
                     Directory.Delete("ATEMP", true);
-                    #endregion
-    */
+              
 
                     break;
             }
