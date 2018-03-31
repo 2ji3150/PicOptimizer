@@ -41,10 +41,8 @@ namespace PicOptimizer {
             Console.WriteLine(adjustedSize.ToString());
             return $"{adjustedSize:n}{decimalPlaces} {SizeSuffixes[mag]}";
         }
-
         public void ShowPtext() => Ptext.Value = $"0 / {total}";
         public void AddDelta(long delta) => Interlocked.Add(ref totaldelta, delta);
         public void IncrementCounter() => Current.Value = Interlocked.Increment(ref counter);
-
     }
 }

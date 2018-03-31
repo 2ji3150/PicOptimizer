@@ -16,18 +16,16 @@ namespace PicOptimizer {
         }
 
         ViewModel vm = new ViewModel();
-
         const string enwebp = @"/c tools\cwebp -quiet -lossless -m 6 -q 100 -mt";
         const string unwebp = @"/c tools\dwebp -mt";
         const string mozjpeg = @"/c tools\jpegtran-static -copy all";
         SemaphoreSlim sem = new SemaphoreSlim(8);
-
+        Stopwatch sw = new Stopwatch();
         TimeSpan ts;
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
             vm.Idle.Value = false;
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+            sw.Restart();
             Directory.CreateDirectory("GTEMP");
             var dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
             Task[] tasks;
@@ -61,7 +59,7 @@ namespace PicOptimizer {
                 }
             };
 
-            bool Zero(int Lengh) {
+            bool IsZero(int Lengh) {
                 if (Lengh == 0) return true;
                 vm.total = Lengh;
                 vm.ShowPtext();
@@ -75,7 +73,7 @@ namespace PicOptimizer {
                         var newf = Path.ChangeExtension(f, ".jpg");
                         return TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", () => ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter());
                     }).ToArray();
-                    if (Zero(tasks.Length)) break;
+                    if (IsZero(tasks.Length)) break;
                     await Task.WhenAll(tasks);
                     break;
                 case 1:// Webp Lossless
@@ -84,7 +82,7 @@ namespace PicOptimizer {
                         var newf = Path.ChangeExtension(f, ".webp");
                         return TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", () => ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter()); ;
                     }).ToArray();
-                    if (Zero(tasks.Length)) break;
+                    if (IsZero(tasks.Length)) break;
                     await Task.WhenAll(tasks);
                     break;
                 case 2:// Decode Webp
@@ -93,12 +91,12 @@ namespace PicOptimizer {
                         var newf = Path.ChangeExtension(f, ".png");
                         return TaskAsync($"{unwebp} {f.WQ()} -o {tempf.WQ()}", () => ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter()); ;
                     }).ToArray();
-                    if (Zero(tasks.Length)) break;
+                    if (IsZero(tasks.Length)) break;
                     await Task.WhenAll(tasks);
                     break;
                 case 3:// manga
                     var files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).ToArray();
-                    if (Zero(files.Length)) break;
+                    if (IsZero(files.Length)) break;
                     if (Directory.Exists("ATEMP")) Directory.Delete("ATEMP", true);
                     Directory.CreateDirectory("ATEMP");
                     for (int i = 0; i < files.Length;) {
@@ -125,7 +123,6 @@ namespace PicOptimizer {
                     }
                     break;
             }
-
             sw.Stop();
             ts = sw.Elapsed;
             SystemSounds.Asterisk.Play();
