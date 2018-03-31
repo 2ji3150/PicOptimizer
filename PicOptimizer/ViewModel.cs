@@ -10,17 +10,16 @@ namespace PicOptimizer {
         int counter = 0;
         public long totaldelta = 0;
         public ReactiveProperty<int> Index { get; } = new ReactiveProperty<int>();
-        public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>();
+        public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>(-1);
         public ReactiveProperty<bool> Idle { get; } = new ReactiveProperty<bool>(true);
-        public ReactiveProperty<double> Pvalue { get; }
+        public ReactiveProperty<double> Pvalue { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
         public ReactiveProperty<string> DeltaText { get; } = new ReactiveProperty<string>();
-        public ViewModel() {
-
-            Pvalue = Current.Select(x => total > 0 ? x / total : 0).ToReactiveProperty();
-            Ptext = Current.Select(x => total > 0 ? $"{x} / {total}" : null).ToReactiveProperty();
-            DeltaText = Current.Select(x => total > 0 ? $"{SizeSuffix(totaldelta)} を減少した" : null).ToReactiveProperty();
-        }
+        public ViewModel() => Current.Where(x => x > -1).Subscribe(x => {
+            Pvalue.Value = x / total;
+            Ptext.Value = $"{x} / {total}";
+            DeltaText.Value = $"{SizeSuffix(totaldelta)} 減";
+        });
 
         readonly string[] SizeSuffixes = { "バイト", "KB", "MB", "GB" };
         string SizeSuffix(Int64 value, int decimalPlaces = 1) {
@@ -42,7 +41,9 @@ namespace PicOptimizer {
         public void Reset() {
             total = counter = 0;
             totaldelta = 0;
-            Current.Value = 0;
+            Current.Value = -1;
+            Pvalue.Value = 0;
+            Ptext.Value = DeltaText.Value = null;
         }
     }
 }
