@@ -13,12 +13,12 @@ namespace PicOptimizer {
         public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<bool> Idle { get; } = new ReactiveProperty<bool>(true);
         public ReactiveProperty<double> Pvalue { get; }
-        public ReadOnlyReactiveProperty<string> Ptext { get; }
+        public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
         public ReactiveProperty<string> DeltaText { get; } = new ReactiveProperty<string>();
         public ViewModel() {
 
             Pvalue = Current.Select(x => total > 0 ? x / total : 0).ToReactiveProperty();
-            Ptext = Current.Select(x => total > 0 ? $"{x} / {total}" : null).ToReadOnlyReactiveProperty();
+            Ptext = Current.Select(x => total > 0 ? $"{x} / {total}" : null).ToReactiveProperty();
             DeltaText = Current.Select(x => total > 0 ? $"{SizeSuffix(totaldelta)} を減少した" : null).ToReactiveProperty();
         }
 

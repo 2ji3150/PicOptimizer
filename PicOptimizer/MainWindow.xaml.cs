@@ -20,16 +20,14 @@ namespace PicOptimizer {
         const string enwebp = @"/c tools\cwebp -quiet -lossless -m 6 -q 100 -mt";
         const string unwebp = @"/c tools\dwebp -mt";
         const string mozjpeg = @"/c tools\jpegtran-static -copy all";
-        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount);
+        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount - 2);
 
         TimeSpan ts;
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
-            if (!vm.Idle.Value) return;
             vm.Idle.Value = false;
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            vm.DeltaText.Value = "処理中...";
             Directory.CreateDirectory("GTEMP");
             var dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
             IEnumerable<Task> tasks;
@@ -47,8 +45,6 @@ namespace PicOptimizer {
                     }
                 } catch (Exception ex) {
                     MessageBox.Show($"Error! {file} on {ex.Message}");
-                } finally {
-                    vm.IncrementCounter();
                 }
             };
 
@@ -62,57 +58,56 @@ namespace PicOptimizer {
                     }
                 } catch (Exception ex) {
                     MessageBox.Show($"Error! {file} on {ex.Message}");
-                } finally {
-                    vm.IncrementCounter();
                 }
             };
-
-
 
             switch (vm.Index.Value) {
                 default://MozJpeg
                     tasks = GetFiles(new string[] { ".jpg", ".jpeg" }, dropdata).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".jpg");
-                        return TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", ReplaceWithCal(f, tempf, newf));
+                        return TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter());
                     }).ToArray();
                     vm.total = tasks.Count();
-                    if (vm.total <= 0) return;
+                    if (vm.total <= 0) break;
+                    vm.Ptext.Value = $"0 / {vm.total}";
                     await Task.WhenAll(tasks);
                     break;
                 case 1:// Webp Lossless
                     tasks = GetFiles(new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }, dropdata).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".webp");
-                        return TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", ReplaceWithCal(f, tempf, newf));
+                        return TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter()); ;
                     }).ToArray();
                     vm.total = tasks.Count();
-                    if (vm.total <= 0) return;
+                    if (vm.total == 0) break;
                     await Task.WhenAll(tasks);
                     break;
                 case 2:// Decode Webp
                     tasks = GetFiles(new string[] { ".webp" }, dropdata).Select(f => {
                         var tempf = GetTempFilePath();
                         var newf = Path.ChangeExtension(f, ".png");
-                        return TaskAsync($"{unwebp} {f.WQ()} -o {tempf.WQ()}", ReplaceWithCal(f, tempf, newf));
+                        return TaskAsync($"{unwebp} {f.WQ()} -o {tempf.WQ()}", ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter()); ;
                     }).ToArray();
                     vm.total = tasks.Count();
-                    if (vm.total <= 0) return;
+                    if (vm.total == 0) break;
+                    vm.Ptext.Value = $"0 / {vm.total}";
                     await Task.WhenAll(tasks);
                     break;
                 case 3:// manga
                     if (Directory.Exists("ATEMP")) Directory.Delete("ATEMP", true);
                     Directory.CreateDirectory("ATEMP");
-                   
-                    var compresstasklist = new List<Task>();
-                    var optimizetasklist = new List<Task>();
-                    foreach (var (a, index) in GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).Select((archive, index) => (archive, index + 1))) {
-                        var tempdir = Path.Combine("ATEMP", index.ToString());
+                    var files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).ToArray();
+                    vm.total = files.Count();
+                    if (vm.total == 0) return;
+                    vm.Ptext.Value = $"0 / {vm.total}";
+                    for (int i = 0; i < files.Length; i++) {
+                        var tempdir = Path.Combine("ATEMP", i.ToString());
                         Directory.CreateDirectory(tempdir);
-                        await RunProcessAsync($@"/c tools\7z x {a.WQ()} -o{tempdir.WQ()}");
+                        await RunProcessAsync($@"/c tools\7z x {files[i].WQ()} -o{tempdir.WQ()}");
                         var temprar = $"{tempdir}.rar";
-                        var newrar = Path.ChangeExtension(a, ".rar");
-                        compresstasklist.Add(RunProcessAsync($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temprar} {tempdir}\").ContinueWith(_ => ReplaceWithCal(a, temprar, newrar)));
+                        var newrar = Path.ChangeExtension(files[i], ".rar");
+                        var optimizetasklist = new List<Task>();
                         foreach (var f in Directory.EnumerateFiles(tempdir, "*.*", SearchOption.AllDirectories)) {
                             var tempf = GetTempFilePath();
                             var ext = Path.GetExtension(f).ToLower();
@@ -123,13 +118,11 @@ namespace PicOptimizer {
                                 var newf = Path.ChangeExtension(f, ".webp");
                                 optimizetasklist.Add(TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", Replace(f, tempf, newf)));
                             }
-                        }  
+                        }
+                        await Task.WhenAll(optimizetasklist);
+                        await RunProcessAsync($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temprar} {tempdir}\").ContinueWith(t => ReplaceWithCal(files[i], temprar, newrar)());
+                        vm.Current.Value = i + 1;
                     }
-
-                    await Task.WhenAll(optimizetasklist).ContinueWith(t => compresstasklist);// problemtic
-                    Directory.Delete("ATEMP", true);
-              
-
                     break;
             }
 
@@ -139,16 +132,13 @@ namespace PicOptimizer {
             if (vm.total != 0) MessageBox.Show($"完成しました\n\n処理にかかった時間 = {ts.Hours} 時間 {ts.Minutes} 分 {ts.Seconds} 秒 {ts.Milliseconds} ミリ秒");
             vm.Reset();
             vm.Idle.Value = true;
-            Debug.WriteLine("sine");
         }
 
         IEnumerable<string> GetFiles(string[] exts, string[] data) {
             foreach (var d in data) {
                 if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
                     var files = Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).AsParallel().Where(f => exts.Contains(Path.GetExtension(f).ToLower()));
-                    foreach (var f in files) {
-                        yield return f;
-                    }
+                    foreach (var f in files) yield return f;
                 } else if (exts.Contains(Path.GetExtension(d).ToLower())) yield return d;
             }
         }
@@ -163,31 +153,20 @@ namespace PicOptimizer {
         }
 
         Task RunProcessAsync(string arg) {
-
             var tcs = new TaskCompletionSource<bool>();
-
             var process = new Process {
                 StartInfo = { FileName = "cmd.exe", Arguments = arg, UseShellExecute = false, CreateNoWindow = true },
                 EnableRaisingEvents = true
             };
-
             process.Exited += (sender, args) => {
                 tcs.SetResult(true);
                 process.Dispose();
             };
-
             process.Start();
-
             return tcs.Task;
         }
-
     }
-
-
     public static class StringExtensionMethods {
         public static string WQ(this string text) => $@"""{text}""";
     }
-
-
-
 }
