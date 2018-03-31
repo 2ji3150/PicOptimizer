@@ -34,10 +34,10 @@ namespace PicOptimizer {
                 try {
                     FileInfo fiI = new FileInfo(file), fiT = new FileInfo(tempfile);
                     if (fiT.Length > 0) {
+                        var delta = fiI.Length - fiT.Length;
                         fiI.IsReadOnly = false;
                         fiI.Delete();
                         fiT.MoveTo(newfile);
-                        var delta = fiI.Length - fiT.Length;
                         if (delta != 0) vm.AddDelta(delta);
                     }
                 } catch (Exception ex) {

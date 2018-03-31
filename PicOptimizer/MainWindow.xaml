@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PicOptimizer"
         mc:Ignorable="d"
-       Title="真・画像最適化工房"  Height="180" Width="600" ResizeMode="NoResize" Drop="Window_Drop" AllowDrop="{Binding Idle.Value}">
+       Title="真・画像最適化工房 3.0"  Height="180" Width="600" ResizeMode="NoResize" Drop="Window_Drop" AllowDrop="{Binding Idle.Value}">
     <Window.DataContext>
         <local:ViewModel/>
     </Window.DataContext>
