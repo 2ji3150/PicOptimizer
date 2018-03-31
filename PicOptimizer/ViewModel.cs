@@ -10,7 +10,7 @@ namespace PicOptimizer {
         int counter = 0;
         public long totaldelta = 0;
         public ReactiveProperty<int> Index { get; } = new ReactiveProperty<int>();
-        public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>(-1);
+        public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<bool> Idle { get; } = new ReactiveProperty<bool>(true);
         public ReactiveProperty<double> Pvalue { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
@@ -23,10 +23,7 @@ namespace PicOptimizer {
             });
 
             Idle.Where(x => x).Subscribe(_ => {
-                total = counter = 0;
-                totaldelta = 0;
-                Current.Value = -1;
-                Pvalue.Value = 0;
+                Current.Value = Pvalue.Value = totaldelta = total = counter = 0;
                 Ptext.Value = DeltaText.Value = null;
             });
         }
@@ -48,6 +45,6 @@ namespace PicOptimizer {
         public void ShowPtext() => Ptext.Value = $"0 / {total}";
         public void AddDelta(long delta) => Interlocked.Add(ref totaldelta, delta);
         public void IncrementCounter() => Current.Value = Interlocked.Increment(ref counter);
- 
+
     }
 }

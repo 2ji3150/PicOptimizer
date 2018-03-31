@@ -30,7 +30,7 @@ namespace PicOptimizer {
             sw.Start();
             Directory.CreateDirectory("GTEMP");
             var dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
-            IEnumerable<Task> tasks;
+            Task[] tasks;
             string GetTempFilePath() => Path.Combine("GTEMP", Guid.NewGuid().ToString());
 
             void ReplaceWithCal(string file, string tempfile, string newfile) {
@@ -68,7 +68,7 @@ namespace PicOptimizer {
                         var newf = Path.ChangeExtension(f, ".jpg");
                         return TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", () => ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter());
                     }).ToArray();
-                    vm.total = tasks.Count();
+                    vm.total = tasks.Length;
                     if (vm.total <= 0) break;
                     vm.ShowPtext();
                     await Task.WhenAll(tasks);
@@ -79,7 +79,7 @@ namespace PicOptimizer {
                         var newf = Path.ChangeExtension(f, ".webp");
                         return TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", () => ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter()); ;
                     }).ToArray();
-                    vm.total = tasks.Count();
+                    vm.total = tasks.Length;
                     if (vm.total == 0) break;
                     vm.ShowPtext();
                     await Task.WhenAll(tasks);
@@ -90,15 +90,15 @@ namespace PicOptimizer {
                         var newf = Path.ChangeExtension(f, ".png");
                         return TaskAsync($"{unwebp} {f.WQ()} -o {tempf.WQ()}", () => ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter()); ;
                     }).ToArray();
-                    vm.total = tasks.Count();
+                    vm.total = tasks.Length;
                     if (vm.total == 0) break;
                     vm.ShowPtext();
                     await Task.WhenAll(tasks);
                     break;
                 case 3:// manga
                     var files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).ToArray();
-                    vm.total = files.Count();
-                    if (vm.total == 0) return;
+                    if (files.Length == 0) break;
+                    vm.total = files.Length;
                     vm.ShowPtext();
                     if (Directory.Exists("ATEMP")) Directory.Delete("ATEMP", true);
                     Directory.CreateDirectory("ATEMP");
@@ -128,10 +128,9 @@ namespace PicOptimizer {
             }
 
             sw.Stop();
-            SystemSounds.Asterisk.Play();
             ts = sw.Elapsed;
+            SystemSounds.Asterisk.Play();
             if (vm.total != 0) MessageBox.Show($"完成しました\n\n処理にかかった時間 = {ts.Hours} 時間 {ts.Minutes} 分 {ts.Seconds} 秒 {ts.Milliseconds} ミリ秒");
-
             vm.Idle.Value = true;
         }
 
