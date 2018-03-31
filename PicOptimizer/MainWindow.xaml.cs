@@ -61,6 +61,13 @@ namespace PicOptimizer {
                 }
             };
 
+            bool Zero(int Lengh) {
+                if (Lengh == 0) return true;
+                vm.total = Lengh;
+                vm.ShowPtext();
+                return false;
+            }
+
             switch (vm.Index.Value) {
                 default://MozJpeg
                     tasks = GetFiles(new string[] { ".jpg", ".jpeg" }, dropdata).Select(f => {
@@ -68,9 +75,7 @@ namespace PicOptimizer {
                         var newf = Path.ChangeExtension(f, ".jpg");
                         return TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", () => ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter());
                     }).ToArray();
-                    vm.total = tasks.Length;
-                    if (vm.total <= 0) break;
-                    vm.ShowPtext();
+                    if (Zero(tasks.Length)) break;
                     await Task.WhenAll(tasks);
                     break;
                 case 1:// Webp Lossless
@@ -79,9 +84,7 @@ namespace PicOptimizer {
                         var newf = Path.ChangeExtension(f, ".webp");
                         return TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", () => ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter()); ;
                     }).ToArray();
-                    vm.total = tasks.Length;
-                    if (vm.total == 0) break;
-                    vm.ShowPtext();
+                    if (Zero(tasks.Length)) break;
                     await Task.WhenAll(tasks);
                     break;
                 case 2:// Decode Webp
@@ -90,16 +93,12 @@ namespace PicOptimizer {
                         var newf = Path.ChangeExtension(f, ".png");
                         return TaskAsync($"{unwebp} {f.WQ()} -o {tempf.WQ()}", () => ReplaceWithCal(f, tempf, newf)).ContinueWith(_ => vm.IncrementCounter()); ;
                     }).ToArray();
-                    vm.total = tasks.Length;
-                    if (vm.total == 0) break;
-                    vm.ShowPtext();
+                    if (Zero(tasks.Length)) break;
                     await Task.WhenAll(tasks);
                     break;
                 case 3:// manga
                     var files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).ToArray();
-                    if (files.Length == 0) break;
-                    vm.total = files.Length;
-                    vm.ShowPtext();
+                    if (Zero(files.Length)) break;
                     if (Directory.Exists("ATEMP")) Directory.Delete("ATEMP", true);
                     Directory.CreateDirectory("ATEMP");
                     for (int i = 0; i < files.Length;) {
