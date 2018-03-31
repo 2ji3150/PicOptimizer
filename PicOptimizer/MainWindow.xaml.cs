@@ -21,7 +21,6 @@ namespace PicOptimizer {
         const string mozjpeg = @"/c tools\jpegtran-static -copy all";
         SemaphoreSlim sem = new SemaphoreSlim(8);
         Stopwatch sw = new Stopwatch();
-        TimeSpan ts;
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
             vm.Idle.Value = false;
@@ -35,11 +34,11 @@ namespace PicOptimizer {
                 try {
                     FileInfo fiI = new FileInfo(file), fiT = new FileInfo(tempfile);
                     if (fiT.Length > 0) {
-                        var delta = fiI.Length - fiT.Length;
-                        if (delta != 0) vm.AddDelta(delta);
                         fiI.IsReadOnly = false;
                         fiI.Delete();
                         fiT.MoveTo(newfile);
+                        var delta = fiI.Length - fiT.Length;
+                        if (delta != 0) vm.AddDelta(delta);
                     }
                 } catch (Exception ex) {
                     MessageBox.Show($"Error! {file} on {ex.Message}");
@@ -124,7 +123,7 @@ namespace PicOptimizer {
                     break;
             }
             sw.Stop();
-            ts = sw.Elapsed;
+            TimeSpan ts = sw.Elapsed;
             SystemSounds.Asterisk.Play();
             if (vm.total != 0) MessageBox.Show($"完成しました\n\n処理にかかった時間 = {ts.Hours} 時間 {ts.Minutes} 分 {ts.Seconds} 秒 {ts.Milliseconds} ミリ秒");
             vm.Idle.Value = true;

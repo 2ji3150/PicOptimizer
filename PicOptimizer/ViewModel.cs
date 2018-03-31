@@ -7,8 +7,8 @@ using System.Threading;
 namespace PicOptimizer {
     public class ViewModel {
         public int total = 0;
-        int counter = 0;
         public long totaldelta = 0;
+        int counter = 0;
         public ReactiveProperty<int> Index { get; } = new ReactiveProperty<int>();
         public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<bool> Idle { get; } = new ReactiveProperty<bool>(true);
