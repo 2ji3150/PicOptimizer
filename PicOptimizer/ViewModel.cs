@@ -15,7 +15,7 @@ namespace PicOptimizer {
         public ReactiveProperty<double> Pvalue { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
         public ReactiveProperty<string> DeltaText { get; } = new ReactiveProperty<string>();
-        public ViewModel() => Current.Where(x => x > -1).Subscribe(x => {
+        public ViewModel() => Current.Where(x => x > 0).Subscribe(x => {
             Pvalue.Value = x / total;
             Ptext.Value = $"{x} / {total}";
             DeltaText.Value = $"{SizeSuffix(totaldelta)} 減";
@@ -36,6 +36,7 @@ namespace PicOptimizer {
             return $"{adjustedSize:n}{decimalPlaces} {SizeSuffixes[mag]}";
         }
 
+        public void ShowPtext() => Ptext.Value = $"0 / {total}";
         public void AddDelta(long delta) => Interlocked.Add(ref totaldelta, delta);
         public void IncrementCounter() => Current.Value = Interlocked.Increment(ref counter);
         public void Reset() {

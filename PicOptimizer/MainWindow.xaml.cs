@@ -70,7 +70,7 @@ namespace PicOptimizer {
                     }).ToArray();
                     vm.total = tasks.Count();
                     if (vm.total <= 0) break;
-                    vm.Current.Value = 0;
+                    vm.ShowPtext();
                     await Task.WhenAll(tasks);
                     break;
                 case 1:// Webp Lossless
@@ -81,7 +81,7 @@ namespace PicOptimizer {
                     }).ToArray();
                     vm.total = tasks.Count();
                     if (vm.total == 0) break;
-                    vm.Current.Value = 0;
+                    vm.ShowPtext();
                     await Task.WhenAll(tasks);
                     break;
                 case 2:// Decode Webp
@@ -92,14 +92,14 @@ namespace PicOptimizer {
                     }).ToArray();
                     vm.total = tasks.Count();
                     if (vm.total == 0) break;
-                    vm.Current.Value = 0;
+                    vm.ShowPtext();
                     await Task.WhenAll(tasks);
                     break;
                 case 3:// manga
                     var files = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).ToArray();
                     vm.total = files.Count();
                     if (vm.total == 0) return;
-                    vm.Current.Value++;
+                    vm.ShowPtext();
                     if (Directory.Exists("ATEMP")) Directory.Delete("ATEMP", true);
                     Directory.CreateDirectory("ATEMP");
                     for (int i = 0; i < files.Length;) {
