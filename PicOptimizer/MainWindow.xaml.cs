@@ -131,7 +131,7 @@ namespace PicOptimizer {
             SystemSounds.Asterisk.Play();
             ts = sw.Elapsed;
             if (vm.total != 0) MessageBox.Show($"完成しました\n\n処理にかかった時間 = {ts.Hours} 時間 {ts.Minutes} 分 {ts.Seconds} 秒 {ts.Milliseconds} ミリ秒");
-            vm.Reset();
+
             vm.Idle.Value = true;
         }
 

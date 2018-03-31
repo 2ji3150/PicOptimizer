@@ -15,12 +15,21 @@ namespace PicOptimizer {
         public ReactiveProperty<double> Pvalue { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
         public ReactiveProperty<string> DeltaText { get; } = new ReactiveProperty<string>();
-        public ViewModel() => Current.Where(x => x > 0).Subscribe(x => {
-            Pvalue.Value = x / total;
-            Ptext.Value = $"{x} / {total}";
-            DeltaText.Value = $"{SizeSuffix(totaldelta)} 減";
-        });
+        public ViewModel() {
+            Current.Where(x => x > 0).Subscribe(x => {
+                Pvalue.Value = x / total;
+                Ptext.Value = $"{x} / {total}";
+                DeltaText.Value = $"{SizeSuffix(totaldelta)} 減";
+            });
 
+            Idle.Where(x => x).Subscribe(_ => {
+                total = counter = 0;
+                totaldelta = 0;
+                Current.Value = -1;
+                Pvalue.Value = 0;
+                Ptext.Value = DeltaText.Value = null;
+            });
+        }
         readonly string[] SizeSuffixes = { "バイト", "KB", "MB", "GB" };
         string SizeSuffix(Int64 value, int decimalPlaces = 1) {
             if (decimalPlaces < 0) throw new ArgumentOutOfRangeException("小数位");
@@ -39,12 +48,6 @@ namespace PicOptimizer {
         public void ShowPtext() => Ptext.Value = $"0 / {total}";
         public void AddDelta(long delta) => Interlocked.Add(ref totaldelta, delta);
         public void IncrementCounter() => Current.Value = Interlocked.Increment(ref counter);
-        public void Reset() {
-            total = counter = 0;
-            totaldelta = 0;
-            Current.Value = -1;
-            Pvalue.Value = 0;
-            Ptext.Value = DeltaText.Value = null;
-        }
+ 
     }
 }
