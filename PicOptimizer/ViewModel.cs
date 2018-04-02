@@ -8,7 +8,7 @@ namespace PicOptimizer {
     public class ViewModel {
         int _total;
         public ReactiveProperty<int> Index { get; } = new ReactiveProperty<int>();
-        public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>();
+        public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>(-1);
         public ReactiveProperty<bool> Idle { get; } = new ReactiveProperty<bool>(true);
         public ReactiveProperty<double> Pvalue { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
@@ -48,7 +48,7 @@ namespace PicOptimizer {
                 return false;
             }
         }
-        public void Update(long totaldelta,int counter) {
+        public void Update(long totaldelta, int counter) {
             Current.Value = counter;
             DeltaText.Value = $"{SizeSuffix(totaldelta)} 減";
         }
