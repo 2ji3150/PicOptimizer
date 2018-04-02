@@ -82,10 +82,10 @@ namespace PicOptimizer {
                         await RunProcessAsync($@"/c tools\7z x {a.WQ()} -o{tempdir.WQ()}");
                         var temprar = $"{tempdir}.rar";
                         var optimizetasklist = new List<Task>();
+                        long tempdelta = totaldelta;
                         foreach (var f in Directory.EnumerateFiles(tempdir, "*.*", SearchOption.AllDirectories)) {
                             var tempf = GetTempFilePath();
                             var ext = Path.GetExtension(f).ToLower();
-                            long tempdelta = totaldelta;
                             if (new string[] { ".jpg", ".jpeg" }.Contains(ext)) optimizetasklist.Add(TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", () => vm.Update(Interlocked.Add(ref tempdelta, Replace(f, tempf, ".jpg")), counter)));
                             else if (new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }.Contains(ext)) optimizetasklist.Add(TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", () => vm.Update(Interlocked.Add(ref tempdelta, Replace(f, tempf, ".webp")), counter)));
                         }
