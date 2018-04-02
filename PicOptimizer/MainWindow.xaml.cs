@@ -85,8 +85,9 @@ namespace PicOptimizer {
                         foreach (var f in Directory.EnumerateFiles(tempdir, "*.*", SearchOption.AllDirectories)) {
                             var tempf = GetTempFilePath();
                             var ext = Path.GetExtension(f).ToLower();
-                            if (new string[] { ".jpg", ".jpeg" }.Contains(ext)) optimizetasklist.Add(TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", () => Replace(f, tempf, ".jpg")));
-                            else if (new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }.Contains(ext)) optimizetasklist.Add(TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", () => Replace(f, tempf, ".webp")));
+                            long tempdelta = totaldelta;
+                            if (new string[] { ".jpg", ".jpeg" }.Contains(ext)) optimizetasklist.Add(TaskAsync($"{mozjpeg} {f.WQ()} > {tempf.WQ()}", () => vm.Update(Interlocked.Add(ref tempdelta, Replace(f, tempf, ".jpg")), counter)));
+                            else if (new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }.Contains(ext)) optimizetasklist.Add(TaskAsync($"{enwebp} {f.WQ()} -o {tempf.WQ()}", () => vm.Update(Interlocked.Add(ref tempdelta, Replace(f, tempf, ".webp")), counter)));
                         }
                         await Task.WhenAll(optimizetasklist);
                         await RunProcessAsync($@"/c ""C:\Program Files\WinRAR\Rar.exe"" a -m5 -md1024m -ep1 -r {temprar} {tempdir}\").ContinueWith(_ => vm.Update(totaldelta += Replace(a, temprar, ".rar"), ++counter));
