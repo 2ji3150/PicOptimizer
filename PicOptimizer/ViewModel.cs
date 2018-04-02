@@ -6,9 +6,7 @@ using System.Threading;
 
 namespace PicOptimizer {
     public class ViewModel {
-        public int total = 0;
-        public long totaldelta = 0;
-        int counter = 0;
+        int _total;
         public ReactiveProperty<int> Index { get; } = new ReactiveProperty<int>();
         public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>();
         public ReactiveProperty<bool> Idle { get; } = new ReactiveProperty<bool>(true);
@@ -16,14 +14,12 @@ namespace PicOptimizer {
         public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
         public ReactiveProperty<string> DeltaText { get; } = new ReactiveProperty<string>();
         public ViewModel() {
-            Current.Where(x => x > 0).Subscribe(x => {
-                Pvalue.Value = x / total;
-                Ptext.Value = $"{x} / {total}";
-                DeltaText.Value = $"{SizeSuffix(totaldelta)} 減";
+            Current.Subscribe(x => {
+                Pvalue.Value = x / _total;
+                Ptext.Value = $"{x} / {_total}";
             });
-
             Idle.Where(x => x).Subscribe(_ => {
-                Current.Value = Pvalue.Value = totaldelta = total = counter = 0;
+                Pvalue.Value = 0;
                 Ptext.Value = DeltaText.Value = null;
             });
         }
@@ -41,8 +37,20 @@ namespace PicOptimizer {
             Console.WriteLine(adjustedSize.ToString());
             return $"{adjustedSize:n}{decimalPlaces} {SizeSuffixes[mag]}";
         }
-        public void ShowPtext() => Ptext.Value = $"0 / {total}";
-        public void AddDelta(long delta) => Interlocked.Add(ref totaldelta, delta);
-        public void IncrementCounter() => Current.Value = Interlocked.Increment(ref counter);
+
+        public bool Start(int total) {
+            if (total != 0) {
+                _total = total;
+                Current.Value = 0;
+                return true;
+            } else {
+                Idle.Value = true;
+                return false;
+            }
+        }
+        public void Update(long totaldelta,int counter) {
+            Current.Value = counter;
+            DeltaText.Value = $"{SizeSuffix(totaldelta)} 減";
+        }
     }
 }
