@@ -91,9 +91,8 @@ namespace PicOptimizer {
                         #region Ruduce Top Level
                         string topdir = tmp_a;
                         DirectoryInfo t_di = di;
-
-                        while (!t_di.EnumerateFiles().Any() && t_di.EnumerateDirectories().Count() == 1) {
-                            topdir += @"\" + t_di.EnumerateDirectories().ToArray()[0].Name;
+                        while (t_di.EnumerateDirectories().Take(2).Count() == 1 && !t_di.EnumerateFiles().Any()) {
+                            topdir += @"\" + t_di.EnumerateDirectories().First().Name;
                             t_di = new DirectoryInfo(topdir);
                         }
                         #endregion
