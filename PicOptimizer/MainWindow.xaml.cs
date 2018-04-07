@@ -14,15 +14,12 @@ namespace PicOptimizer {
             InitializeComponent();
             DataContext = vm;
         }
-
         ViewModel vm = new ViewModel();
         const string cwebp = @"tools\cwebp", cwebp_sw = "-lossless -m 6 -q 100 -mt";
         const string dwebp = @"tools\dwebp", dwebp_sw = "-mt";
         const string mozjpeg = @"tools\jpegtran-static", mozjpeg_sw = "-copy all";
-        const string winrar = @"""%ProgramFiles%\WinRAR\Rar""", winrar_sw = "a -m5 -md1024m -ep1 -r";
+        const string winrar = @"C:\Program Files\WinRAR\Rar", winrar_sw = "a -m5 -md1024m -ep1 -r";
         const string senvenzip = @"tools\7z", senvenzip_sw = "x";
-        const string tempdir_g = @"TEMP\G";
-        const string tempdir_a = @"TEMP\A";
 
         SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount - 2);
         Stopwatch sw = new Stopwatch();
@@ -30,19 +27,23 @@ namespace PicOptimizer {
         private async void Window_Drop(object sender, DragEventArgs e) {
             vm.Idle.Value = false;
             sw.Restart();
-            Directory.CreateDirectory(tempdir_g);
-            var dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
+            string[] dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
             Task[] tasks;
             long totaldelta = 0;
             int counter = 0, index = 0;
 
-            string GetTempFilePath(ref int idnum) => Path.Combine(tempdir_g, (++idnum).ToString());
+            string time = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss");
+            string tmp_g = Path.Combine("TEMP", time, "G"), tmp_a = Path.Combine("TEMP", time, "A");
+            Directory.CreateDirectory(tmp_g);
+
+
+            string GetTempFilePath(ref int idnum) => Path.Combine(tmp_g, (++idnum).ToString());
 
             long Replace(ref long td, string file, string tempfile, string ext) {
                 try {
                     FileInfo fiI = new FileInfo(file) { IsReadOnly = false }, fiT = new FileInfo(tempfile);
                     if (fiT.Length <= 0) throw new Exception("生成したファイルが破損");
-                    var delta = fiI.Length - fiT.Length;
+                    long delta = fiI.Length - fiT.Length;
                     fiI.Delete();
                     fiT.MoveTo(Path.ChangeExtension(file, ext));
                     if (delta == 0) return td;
@@ -56,64 +57,64 @@ namespace PicOptimizer {
 
             switch (vm.Index.Value) {
                 default://MozJpeg
-                    tasks = GetFiles(new string[] { ".jpg", ".jpeg" }, dropdata).Select(f => {
-                        var tempf = GetTempFilePath(ref index);
-                        return TaskAsync(mozjpeg, new string[] { "-copy all", f.WQ(), ">", tempf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, f, tempf, ".jpg"), Interlocked.Increment(ref counter)));
+                    tasks = GetFiles(new string[] { ".jpg", ".jpeg" }, dropdata).Select(inf => {
+                        string outf = GetTempFilePath(ref index);
+                        Debug.WriteLine(outf);
+                        return TaskAsync(mozjpeg, new string[] { mozjpeg_sw, "-outfile", outf.WQ(), inf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), Interlocked.Increment(ref counter)));
                     }).ToArray();
-                    if (!vm.Start(index)) return;
+                    if (!vm.Start(tasks.Length)) return;
                     await Task.WhenAll(tasks);
                     break;
                 case 1:// cwebp
-                    tasks = GetFiles(new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }, dropdata).Select(f => {
-                        var tempf = GetTempFilePath(ref index);
-                        return TaskAsync(cwebp, new string[] { cwebp_sw, f.WQ(), "-o", tempf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, f, tempf, ".webp"), Interlocked.Increment(ref counter)));
+                    tasks = GetFiles(new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }, dropdata).Select(inf => {
+                        string outf = GetTempFilePath(ref index);
+                        return TaskAsync(cwebp, new string[] { cwebp_sw, inf.WQ(), "-o", outf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), Interlocked.Increment(ref counter)));
                     }).ToArray();
-                    if (!vm.Start(index)) return;
+                    if (!vm.Start(tasks.Length)) return;
                     await Task.WhenAll(tasks);
                     break;
                 case 2:// dwebp
-                    tasks = GetFiles(new string[] { ".webp" }, dropdata).Select(f => {
-                        var tempf = GetTempFilePath(ref index);
-                        return TaskAsync(dwebp, new string[] { dwebp_sw, f.WQ(), "-o", tempf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, f, tempf, ".png"), Interlocked.Increment(ref counter)));
+                    tasks = GetFiles(new string[] { ".webp" }, dropdata).Select(inf => {
+                        string outf = GetTempFilePath(ref index);
+                        return TaskAsync(dwebp, new string[] { dwebp_sw, inf.WQ(), "-o", outf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".png"), Interlocked.Increment(ref counter)));
                     }).ToArray();
                     if (!vm.Start(tasks.Length)) return;
                     await Task.WhenAll(tasks);
                     break;
                 case 3:// manga
-                    var dropfiles = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).ToArray();
+                    string[] dropfiles = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).ToArray();
                     if (!vm.Start(dropfiles.Length)) return;
-                    DirectoryInfo di = new DirectoryInfo(tempdir_a);
-                    if (di.Exists) di.Delete(true);
-                    foreach (var a in dropfiles) {
-                        di.Create();
-                        await RunProcessAsync(senvenzip, new string[] { senvenzip_sw, a.WQ(), $"-o{tempdir_a}" });
+                    DirectoryInfo di = new DirectoryInfo(tmp_a);
 
-                        #region Ruduce Dir Level
-                        var tempdir = tempdir_a;
-                        DirectoryInfo ditemp = di;
-                        while (!ditemp.EnumerateFiles().Any() && ditemp.EnumerateDirectories().Count() == 1) {
-                            tempdir += @"\" + ditemp.EnumerateDirectories().ToArray()[0].Name;
-                            ditemp = new DirectoryInfo(tempdir);
+                    foreach (string a in dropfiles) {
+                        di.Create();
+                        await RunProcessAsync(senvenzip, new string[] { senvenzip_sw, a.WQ(), $"-o{tmp_a}" });
+                        #region Ruduce Top Level
+                        string topdir = tmp_a;
+                        DirectoryInfo t_di = di;
+                        while (!t_di.EnumerateFiles().Any() && t_di.EnumerateDirectories().Count() == 1) {
+                            topdir += @"\" + t_di.EnumerateDirectories().ToArray()[0].Name;
+                            t_di = new DirectoryInfo(topdir);
                         }
                         #endregion
 
-                        var optimizetasklist = new List<Task>();
+                        List<Task> optimizetasklist = new List<Task>();
                         long tempdelta = totaldelta;
 
-                        foreach (string f in Directory.EnumerateFiles(tempdir, "*.*", SearchOption.AllDirectories)) {
-                            string tempf;
-                            string ext = Path.GetExtension(f).ToLower();
+                        foreach (string inf in Directory.EnumerateFiles(topdir, "*.*", SearchOption.AllDirectories)) {
+                            string outf;
+                            string ext = Path.GetExtension(inf).ToLower();
                             if (new string[] { ".jpg", ".jpeg" }.Contains(ext)) {
-                                tempf = GetTempFilePath(ref index);
-                                optimizetasklist.Add(TaskAsync(mozjpeg, new string[] { mozjpeg_sw, f.WQ(), ">", tempf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref tempdelta, f, tempf, ".jpg"), counter)));
+                                outf = GetTempFilePath(ref index);
+                                optimizetasklist.Add(TaskAsync(mozjpeg, new string[] { mozjpeg_sw, "-outfile", outf.WQ(), inf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref tempdelta, inf, outf, ".jpg"), counter)));
                             } else if (new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" }.Contains(ext)) {
-                                tempf = GetTempFilePath(ref index);
-                                optimizetasklist.Add(TaskAsync(cwebp, new string[] { cwebp_sw, f.WQ(), "-o", tempf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref tempdelta, f, tempf, ".webp"), counter)));
+                                outf = GetTempFilePath(ref index);
+                                optimizetasklist.Add(TaskAsync(cwebp, new string[] { cwebp_sw, inf.WQ(), "-o", outf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref tempdelta, inf, outf, ".webp"), counter)));
                             }
                         }
-
                         await Task.WhenAll(optimizetasklist);
-                        await RunProcessAsync(winrar, new string[] { winrar_sw, tempdir.WQ(), $@"{tempdir}\".WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, a, $"{tempdir}.rar", ".rar"), ++counter));
+                        string outa = tmp_a + ".rar";
+                        await RunProcessAsync(winrar.WQ(), new string[] { winrar_sw, outa.WQ(), $@"{topdir}\".WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, a, outa, ".rar"), ++counter));
                         di.Delete();
                     }
                     break;
@@ -126,10 +127,10 @@ namespace PicOptimizer {
         }
 
         IEnumerable<string> GetFiles(string[] exts, string[] data) {
-            foreach (var d in data) {
+            foreach (string d in data) {
                 if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                    var files = Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).AsParallel().Where(f => exts.Contains(Path.GetExtension(f).ToLower()));
-                    foreach (var f in files) yield return f;
+                    IEnumerable<string> files = Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).Where(f => exts.Contains(Path.GetExtension(f).ToLower()));
+                    foreach (string f in files) yield return f;
                 } else if (exts.Contains(Path.GetExtension(d).ToLower())) yield return d;
             }
         }
@@ -144,16 +145,18 @@ namespace PicOptimizer {
         }
 
         Task RunProcessAsync(string filename, string[] arguments) {
-            var tcs = new TaskCompletionSource<bool>();
-            var process = new Process {
-                StartInfo = { FileName = filename, Arguments = string.Join(" ", arguments), UseShellExecute = false, CreateNoWindow = true },
+            TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+            Process p = new Process {
+                StartInfo = { FileName = filename, Arguments = string.Join(" ", arguments), UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true },
                 EnableRaisingEvents = true
             };
-            process.Exited += (sender, args) => {
+            p.Exited += (sender, args) => {
                 tcs.SetResult(true);
-                process.Dispose();
+                p.Dispose();
             };
-            process.Start();
+            p.OutputDataReceived += (sender, args) => Debug.WriteLine(args.Data);
+            p.Start();
+            p.BeginOutputReadLine();
             return tcs.Task;
         }
     }

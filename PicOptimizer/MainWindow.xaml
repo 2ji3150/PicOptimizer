@@ -28,10 +28,10 @@
         <TextBlock Grid.Row="1" Grid.Column="2" x:Name="progresstext" HorizontalAlignment="Right" TextWrapping="Wrap" Text="{Binding Ptext.Value}" FontSize="22" VerticalAlignment="Center"/>
         <GroupBox Grid.Row="2" Grid.Column="0" Header="最適化モード" FontSize="12" VerticalAlignment="Center" >
             <ComboBox Margin="5" SelectedIndex="{Binding Index.Value}" IsEnabled="{Binding Idle.Value}" VerticalAlignment="Center">
-                <ComboBoxItem Content="MozJpeg" HorizontalAlignment="Left" Width="167" FontSize="14"/>
-                <ComboBoxItem Content="Webp Lossless" HorizontalAlignment="Left" Width="167" FontSize="14"/>
-                <ComboBoxItem Content="Webp to PNG" HorizontalAlignment="Left" Width="167" FontSize="14"/>
-                <ComboBoxItem Content="Manga" HorizontalAlignment="Left" Width="167" FontSize="14"/>
+                <ComboBoxItem Content="mozjpeg" HorizontalAlignment="Left" Width="165" FontSize="14"/>
+                <ComboBoxItem Content="Webp Lossless" HorizontalAlignment="Left" Width="165" FontSize="14"/>
+                <ComboBoxItem Content="Webp to PNG" HorizontalAlignment="Left" Width="165" FontSize="14"/>
+                <ComboBoxItem Content="Manga" HorizontalAlignment="Left" Width="165" FontSize="14"/>
             </ComboBox>
         </GroupBox>
     </Grid>
