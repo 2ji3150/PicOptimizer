@@ -88,10 +88,11 @@ namespace PicOptimizer {
 
                     foreach (string a in dropfiles) {
                         di.Create();
-                        await RunProcessAsync(senvenzip, new string[] { senvenzip_sw, a.WQ(), $"-o{tmp_a}" });
+                        await RunProcessAsync(senvenzip, new string[] { senvenzip_sw, a.WQ(), "-o" + tmp_a.WQ() });
                         #region Ruduce Top Level
                         string topdir = tmp_a;
                         DirectoryInfo t_di = di;
+
                         while (!t_di.EnumerateFiles().Any() && t_di.EnumerateDirectories().Count() == 1) {
                             topdir += @"\" + t_di.EnumerateDirectories().ToArray()[0].Name;
                             t_di = new DirectoryInfo(topdir);
@@ -115,7 +116,7 @@ namespace PicOptimizer {
                         await Task.WhenAll(optimizetasklist);
                         string outa = tmp_a + ".rar";
                         await RunProcessAsync(winrar.WQ(), new string[] { winrar_sw, outa.WQ(), $@"{topdir}\".WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, a, outa, ".rar"), ++counter));
-                        di.Delete();
+                        di.Delete(true);
                     }
                     break;
             }
