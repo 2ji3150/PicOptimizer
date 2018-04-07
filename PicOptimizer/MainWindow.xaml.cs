@@ -61,7 +61,10 @@ namespace PicOptimizer {
                         string outf = GetTempFilePath(ref index);
                         return TaskAsync(mozjpeg, new string[] { mozjpeg_sw, "-outfile", outf.WQ(), inf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), Interlocked.Increment(ref counter)));
                     }).ToArray();
-                    if (!vm.Start(tasks.Length)) return;
+                    if (!vm.Start(tasks.Length)) {
+                        SystemSounds.Asterisk.Play();
+                        return;
+                    }
                     await Task.WhenAll(tasks);
                     break;
                 case 1:// cwebp
@@ -69,7 +72,10 @@ namespace PicOptimizer {
                         string outf = GetTempFilePath(ref index);
                         return TaskAsync(cwebp, new string[] { cwebp_sw, inf.WQ(), "-o", outf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), Interlocked.Increment(ref counter)));
                     }).ToArray();
-                    if (!vm.Start(tasks.Length)) return;
+                    if (!vm.Start(tasks.Length)) {
+                        SystemSounds.Asterisk.Play();
+                        return;
+                    }
                     await Task.WhenAll(tasks);
                     break;
                 case 2:// dwebp
@@ -77,12 +83,18 @@ namespace PicOptimizer {
                         string outf = GetTempFilePath(ref index);
                         return TaskAsync(dwebp, new string[] { dwebp_sw, inf.WQ(), "-o", outf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".png"), Interlocked.Increment(ref counter)));
                     }).ToArray();
-                    if (!vm.Start(tasks.Length)) return;
+                    if (!vm.Start(tasks.Length)) {
+                        SystemSounds.Asterisk.Play();
+                        return;
+                    }
                     await Task.WhenAll(tasks);
                     break;
                 case 3:// manga
                     string[] dropfiles = GetFiles(new string[] { ".zip", ".rar", ".7z" }, dropdata).ToArray();
-                    if (!vm.Start(dropfiles.Length)) return;
+                    if (!vm.Start(dropfiles.Length)) {
+                        SystemSounds.Asterisk.Play();
+                        return;
+                    }
                     DirectoryInfo di = new DirectoryInfo(tmp_a);
 
                     foreach (string a in dropfiles) {
@@ -90,11 +102,8 @@ namespace PicOptimizer {
                         await RunProcessAsync(senvenzip, new string[] { senvenzip_sw, a.WQ(), "-o" + tmp_a.WQ() });
                         #region Ruduce Top Level
                         string topdir = tmp_a;
-                        DirectoryInfo t_di = di;
-                        while (t_di.EnumerateDirectories().Take(2).Count() == 1 && !t_di.EnumerateFiles().Any()) {
-                            topdir += @"\" + t_di.EnumerateDirectories().First().Name;
-                            t_di = new DirectoryInfo(topdir);
-                        }
+                        while (Directory.EnumerateDirectories(topdir).Take(2).Count() == 1 && !Directory.EnumerateFiles(topdir).Any()) topdir += @"\" + Path.GetFileName(Directory.EnumerateDirectories(topdir).First());
+
                         #endregion
 
                         List<Task> optimizetasklist = new List<Task>();
@@ -115,6 +124,7 @@ namespace PicOptimizer {
                         string outa = tmp_a + ".rar";
                         await RunProcessAsync(winrar.WQ(), new string[] { winrar_sw, outa.WQ(), $@"{topdir}\".WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, a, outa, ".rar"), ++counter));
                         di.Delete(true);
+                        di.Refresh();
                     }
                     break;
             }
@@ -128,8 +138,7 @@ namespace PicOptimizer {
         IEnumerable<string> GetFiles(string[] exts, string[] data) {
             foreach (string d in data) {
                 if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                    IEnumerable<string> files = Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).Where(f => exts.Contains(Path.GetExtension(f).ToLower()));
-                    foreach (string f in files) yield return f;
+                    foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).Where(f => exts.Contains(Path.GetExtension(f).ToLower()))) yield return f;
                 } else if (exts.Contains(Path.GetExtension(d).ToLower())) yield return d;
             }
         }
