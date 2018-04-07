@@ -59,7 +59,6 @@ namespace PicOptimizer {
                 default://MozJpeg
                     tasks = GetFiles(new string[] { ".jpg", ".jpeg" }, dropdata).Select(inf => {
                         string outf = GetTempFilePath(ref index);
-                        Debug.WriteLine(outf);
                         return TaskAsync(mozjpeg, new string[] { mozjpeg_sw, "-outfile", outf.WQ(), inf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), Interlocked.Increment(ref counter)));
                     }).ToArray();
                     if (!vm.Start(tasks.Length)) return;
