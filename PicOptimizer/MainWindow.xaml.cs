@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Media;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -15,13 +16,13 @@ namespace PicOptimizer {
             DataContext = vm;
         }
         ViewModel vm = new ViewModel();
-        const string cwebp = @"tools\cwebp", cwebp_sw = "-lossless -m 6 -q 100 -mt";
-        const string dwebp = @"tools\dwebp", dwebp_sw = "-mt";
+        const string cwebp = @"tools\cwebp", cwebp_sw = "-quiet -mt -lossless -m 6 -q 100";
+        const string dwebp = @"tools\dwebp", dwebp_sw = "-quiet -mt";
         const string mozjpeg = @"tools\jpegtran-static", mozjpeg_sw = "-copy all";
-        const string winrar = @"C:\Program Files\WinRAR\Rar", winrar_sw = "a -m5 -md1024m -ep1 -r";
+        const string winrar = @"C:\Program Files\WinRAR\Rar", winrar_sw = "a -m5 -md1024m -ep1 -r -idq";
         const string senvenzip = @"tools\7z", senvenzip_sw = "x";
 
-        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount - 2);
+        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount);
         Stopwatch sw = new Stopwatch();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
@@ -36,7 +37,7 @@ namespace PicOptimizer {
             string tmp_g = Path.Combine("TEMP", time, "G"), tmp_a = Path.Combine("TEMP", time, "A");
             Directory.CreateDirectory(tmp_g);
 
-
+            #region ローカル関数
             string GetTempFilePath(ref int idnum) => Path.Combine(tmp_g, (++idnum).ToString());
 
             long Replace(ref long td, string file, string tempfile, string ext) {
@@ -54,6 +55,23 @@ namespace PicOptimizer {
                 }
             }
 
+            IEnumerable<string> GetFiles(string[] exts, string[] data) {
+                foreach (string d in data) {
+                    if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
+                        foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).Where(f => exts.Contains(Path.GetExtension(f).ToLower()))) yield return f;
+                    } else if (exts.Contains(Path.GetExtension(d).ToLower())) yield return d;
+                }
+            }
+
+            async Task TaskAsync(string exe, string[] arg) {
+                await sem.WaitAsync();
+                try {
+                    await RunProcessAsync(exe, arg);
+                } finally {
+                    sem.Release();
+                }
+            }
+            #endregion
 
             switch (vm.Index.Value) {
                 default://MozJpeg
@@ -135,38 +153,47 @@ namespace PicOptimizer {
             vm.Idle.Value = true;
         }
 
-        IEnumerable<string> GetFiles(string[] exts, string[] data) {
-            foreach (string d in data) {
-                if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                    foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).Where(f => exts.Contains(Path.GetExtension(f).ToLower()))) yield return f;
-                } else if (exts.Contains(Path.GetExtension(d).ToLower())) yield return d;
-            }
-        }
 
-        async Task TaskAsync(string exe, string[] arg) {
-            await sem.WaitAsync();
-            try {
-                await RunProcessAsync(exe, arg);
-            } finally {
-                sem.Release();
-            }
-        }
 
+
+
+#if DEBUG
         Task RunProcessAsync(string filename, string[] arguments) {
             TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
             Process p = new Process {
-                StartInfo = { FileName = filename, Arguments = string.Join(" ", arguments), UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true },
+                StartInfo = { FileName = filename, Arguments = string.Join(" ", arguments), UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true },
                 EnableRaisingEvents = true
             };
-            p.Exited += (sender, args) => {
+            StringBuilder stdout = new StringBuilder(), stderr = new StringBuilder();
+            p.OutputDataReceived += (s, e) => { if (e.Data != null) stdout.AppendLine(e.Data); };
+            p.ErrorDataReceived += (s, e) => { if (e.Data != null) stderr.AppendLine(e.Data); };
+
+            p.Exited += (s, e) => {
                 tcs.SetResult(true);
                 p.Dispose();
             };
-            p.OutputDataReceived += (sender, args) => Debug.WriteLine(args.Data);
             p.Start();
             p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+
             return tcs.Task;
         }
+#else
+        Task RunProcessAsync(string filename, string[] arguments) {
+            TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+            Process p = new Process {
+                StartInfo = { FileName = filename, Arguments = string.Join(" ", arguments), UseShellExecute = false, CreateNoWindow = true },
+                EnableRaisingEvents = true
+            };
+            p.Exited += (s, e) => {
+                tcs.SetResult(true);
+                p.Dispose();
+            };
+            p.Start();
+            return tcs.Task;
+        }
+#endif
+
     }
     public static class StringExtensionMethods {
         public static string WQ(this string text) => $@"""{text}""";
