@@ -2,7 +2,6 @@
 using System;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Threading;
 
 namespace PicOptimizer {
     public class ViewModel {
