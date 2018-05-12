@@ -15,7 +15,7 @@ namespace PicOptimizer {
         const string cwebp = @"tools\cwebp", cwebp_sw = "-quiet -mt -lossless -m 6 -q 100";
         const string dwebp = @"tools\dwebp", dwebp_sw = "-quiet -mt";
         const string mozjpeg = @"tools\jpegtran-static", mozjpeg_sw = "-copy all";
-        const string winrar = @"C:\Program Files\WinRAR\Rar", winrar_sw = "a -m5 -md1024m -ep1 -r -idq";
+        const string winrar = @"tools\Rar", winrar_sw = "a -m5 -md1024m -ep1 -r -idq";
         const string senvenzip = @"tools\7z", senvenzip_sw = "x";
         readonly string[] jpg_ext = new string[] { ".jpg", ".jpeg" };
         readonly string[] losslessimg_ext = new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" };
@@ -141,7 +141,7 @@ namespace PicOptimizer {
                         }
                         await Task.WhenAll(optimizetasklist);
                         string outa = tmp_a + ".rar";
-                        await RunProcessAsync(winrar.WQ(), new string[] { winrar_sw, outa.WQ(), $@"{topdir}\".WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, a, outa, ".rar"), ++counter));
+                        await RunProcessAsync(winrar, new string[] { winrar_sw, outa.WQ(), $@"{topdir}\".WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, a, outa, ".rar"), ++counter));
                         di.Delete(true);
                         di.Refresh();
                     }
