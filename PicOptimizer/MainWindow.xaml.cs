@@ -11,11 +11,7 @@ using System.Windows;
 
 namespace PicOptimizer {
     public partial class MainWindow : Window {
-        public MainWindow() {
-            InitializeComponent();
-            DataContext = vm;
-        }
-        ViewModel vm = new ViewModel();
+        public MainWindow() => InitializeComponent();
         const string cwebp = @"tools\cwebp", cwebp_sw = "-quiet -mt -lossless -m 6 -q 100";
         const string dwebp = @"tools\dwebp", dwebp_sw = "-quiet -mt";
         const string mozjpeg = @"tools\jpegtran-static", mozjpeg_sw = "-copy all";
@@ -30,6 +26,7 @@ namespace PicOptimizer {
         Stopwatch sw = new Stopwatch();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
+            ViewModel vm = (ViewModel)DataContext;
             vm.Idle.Value = false;
             sw.Restart();
             string[] dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
