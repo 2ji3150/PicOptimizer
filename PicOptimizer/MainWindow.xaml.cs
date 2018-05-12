@@ -64,7 +64,7 @@ namespace PicOptimizer {
                 }
             }
 
-            async Task TaskAsync(string exe, string[] arg) {
+            async Task TaskAsync(string exe, string arg) {
                 await sem.WaitAsync();
                 try {
                     await RunProcessAsync(exe, arg);
@@ -78,7 +78,7 @@ namespace PicOptimizer {
                 default://MozJpeg
                     tasks = GetFiles(jpg_ext, dropdata).Select(inf => {
                         string outf = GetTempFilePath(ref index);
-                        return TaskAsync(mozjpeg, new string[] { mozjpeg_sw, "-outfile", outf.WQ(), inf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), Interlocked.Increment(ref counter)));
+                        return TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), Interlocked.Increment(ref counter)));
                     }).ToArray();
                     if (!vm.Start(tasks.Length)) {
                         SystemSounds.Asterisk.Play();
@@ -89,7 +89,7 @@ namespace PicOptimizer {
                 case 1:// cwebp
                     tasks = GetFiles(losslessimg_ext, dropdata).Select(inf => {
                         string outf = GetTempFilePath(ref index);
-                        return TaskAsync(cwebp, new string[] { cwebp_sw, inf.WQ(), "-o", outf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), Interlocked.Increment(ref counter)));
+                        return TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), Interlocked.Increment(ref counter)));
                     }).ToArray();
                     if (!vm.Start(tasks.Length)) {
                         SystemSounds.Asterisk.Play();
@@ -100,7 +100,7 @@ namespace PicOptimizer {
                 case 2:// dwebp
                     tasks = GetFiles(webp_ext, dropdata).Select(inf => {
                         string outf = GetTempFilePath(ref index);
-                        return TaskAsync(dwebp, new string[] { dwebp_sw, inf.WQ(), "-o", outf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".png"), Interlocked.Increment(ref counter)));
+                        return TaskAsync(dwebp, $"{dwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".png"), Interlocked.Increment(ref counter)));
                     }).ToArray();
                     if (!vm.Start(tasks.Length)) {
                         SystemSounds.Asterisk.Play();
@@ -118,7 +118,7 @@ namespace PicOptimizer {
 
                     foreach (string a in dropfiles) {
                         di.Create();
-                        await RunProcessAsync(senvenzip, new string[] { senvenzip_sw, a.WQ(), "-o" + tmp_a.WQ() });
+                        await RunProcessAsync(senvenzip, $"{senvenzip_sw} {a.WQ()} -o{tmp_a.WQ()}");
                         #region Ruduce Top Level
                         string topdir = tmp_a;
                         while (Directory.EnumerateDirectories(topdir).Take(2).Count() == 1 && !Directory.EnumerateFiles(topdir).Any()) topdir += @"\" + Path.GetFileName(Directory.EnumerateDirectories(topdir).First());
@@ -133,15 +133,15 @@ namespace PicOptimizer {
                             string ext = Path.GetExtension(inf).ToLower();
                             if (jpg_ext.Contains(ext)) {
                                 outf = GetTempFilePath(ref index);
-                                optimizetasklist.Add(TaskAsync(mozjpeg, new string[] { mozjpeg_sw, "-outfile", outf.WQ(), inf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref tempdelta, inf, outf, ".jpg"), counter)));
+                                optimizetasklist.Add(TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref tempdelta, inf, outf, ".jpg"), counter)));
                             } else if (losslessimg_ext.Contains(ext)) {
                                 outf = GetTempFilePath(ref index);
-                                optimizetasklist.Add(TaskAsync(cwebp, new string[] { cwebp_sw, inf.WQ(), "-o", outf.WQ() }).ContinueWith(_ => vm.Update(Replace(ref tempdelta, inf, outf, ".webp"), counter)));
+                                optimizetasklist.Add(TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref tempdelta, inf, outf, ".webp"), counter)));
                             }
                         }
                         await Task.WhenAll(optimizetasklist);
                         string outa = tmp_a + ".rar";
-                        await RunProcessAsync(winrar, new string[] { winrar_sw, outa.WQ(), $@"{topdir}\".WQ() }).ContinueWith(_ => vm.Update(Replace(ref totaldelta, a, outa, ".rar"), ++counter));
+                        await RunProcessAsync(winrar, $"{winrar_sw} {outa.WQ()} {(topdir + @"\").WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, a, outa, ".rar"), ++counter));
                         di.Delete(true);
                         di.Refresh();
                     }
@@ -159,10 +159,10 @@ namespace PicOptimizer {
 
 
 #if DEBUG
-        Task RunProcessAsync(string filename, string[] arguments) {
+        Task RunProcessAsync(string fn, string arg) {
             TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
             Process p = new Process {
-                StartInfo = { FileName = filename, Arguments = string.Join(" ", arguments), UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true },
+                StartInfo = { FileName = fn, Arguments = arg, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true },
                 EnableRaisingEvents = true
             };
             StringBuilder stdout = new StringBuilder(), stderr = new StringBuilder();
@@ -180,10 +180,10 @@ namespace PicOptimizer {
             return tcs.Task;
         }
 #else
-        Task RunProcessAsync(string filename, string[] arguments) {
+        Task RunProcessAsync(string fn, string arg) {
             TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
             Process p = new Process {
-                StartInfo = { FileName = filename, Arguments = string.Join(" ", arguments), UseShellExecute = false, CreateNoWindow = true },
+                StartInfo = { FileName = fn, Arguments = arg, UseShellExecute = false, CreateNoWindow = true },
                 EnableRaisingEvents = true
             };
             p.Exited += (s, e) => {
