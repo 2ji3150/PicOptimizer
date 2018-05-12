@@ -6,12 +6,12 @@ using System.Reactive.Linq;
 namespace PicOptimizer {
     public class ViewModel {
         int _total;
-        public ReactiveProperty<int> Index { get; } = new ReactiveProperty<int>();
-        public ReactiveProperty<double> Current { get; } = new ReactiveProperty<double>(-1);
-        public ReactiveProperty<bool> Idle { get; } = new ReactiveProperty<bool>(true);
-        public ReactiveProperty<double> Pvalue { get; } = new ReactiveProperty<double>();
-        public ReactiveProperty<string> Ptext { get; } = new ReactiveProperty<string>();
-        public ReactiveProperty<string> DeltaText { get; } = new ReactiveProperty<string>();
+        public ReactivePropertySlim<int> Index { get; } = new ReactivePropertySlim<int>();
+        public ReactivePropertySlim<double> Current { get; } = new ReactivePropertySlim<double>(-1);
+        public ReactivePropertySlim<bool> Idle { get; } = new ReactivePropertySlim<bool>(true);
+        public ReactivePropertySlim<double> Pvalue { get; } = new ReactivePropertySlim<double>();
+        public ReactivePropertySlim<string> Ptext { get; } = new ReactivePropertySlim<string>();
+        public ReactivePropertySlim<string> DeltaText { get; } = new ReactivePropertySlim<string>();
         public ViewModel() {
             Current.Subscribe(x => {
                 Pvalue.Value = x / _total;
