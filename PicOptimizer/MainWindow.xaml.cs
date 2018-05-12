@@ -17,11 +17,10 @@ namespace PicOptimizer {
         const string mozjpeg = @"tools\jpegtran-static", mozjpeg_sw = "-copy all";
         const string winrar = @"tools\Rar", winrar_sw = "a -m5 -md1024m -ep1 -r -idq";
         const string senvenzip = @"tools\7z", senvenzip_sw = "x";
-        readonly string[] jpg_ext = new string[] { ".jpg", ".jpeg" };
-        readonly string[] losslessimg_ext = new string[] { ".bmp", ".png", ".tif", "tiff", ".webp" };
-        readonly string[] webp_ext = new string[] { ".webp" };
-        readonly string[] archive_ext = new string[] { ".zip", ".rar", ".7z" };
-
+        readonly HashSet<string> ext_mozjpg = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg" };
+        readonly HashSet<string> ext_cwebp = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".bmp", ".png", ".tif", "tiff", ".webp" };
+        readonly HashSet<string> ext_dwebp = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".webp" };
+        readonly HashSet<string> ext_archive = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".rar", ".7z" };
         SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount);
         Stopwatch sw = new Stopwatch();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
@@ -56,11 +55,11 @@ namespace PicOptimizer {
                 }
             }
 
-            IEnumerable<string> GetFiles(string[] exts, string[] data) {
+            IEnumerable<string> GetFiles(HashSet<string> exts, string[] data) {
                 foreach (string d in data) {
                     if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                        foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).Where(f => exts.Contains(Path.GetExtension(f).ToLower()))) yield return f;
-                    } else if (exts.Contains(Path.GetExtension(d).ToLower())) yield return d;
+                        foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).Where(f => exts.Contains(Path.GetExtension(f)))) yield return f;
+                    } else if (exts.Contains(Path.GetExtension(d))) yield return d;
                 }
             }
 
@@ -76,7 +75,7 @@ namespace PicOptimizer {
 
             switch (vm.Index.Value) {
                 default://MozJpeg
-                    tasks = GetFiles(jpg_ext, dropdata).Select(inf => {
+                    tasks = GetFiles(ext_mozjpg, dropdata).Select(inf => {
                         string outf = GetTempFilePath(ref index);
                         return TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), Interlocked.Increment(ref counter)));
                     }).ToArray();
@@ -87,7 +86,7 @@ namespace PicOptimizer {
                     await Task.WhenAll(tasks);
                     break;
                 case 1:// cwebp
-                    tasks = GetFiles(losslessimg_ext, dropdata).Select(inf => {
+                    tasks = GetFiles(ext_cwebp, dropdata).Select(inf => {
                         string outf = GetTempFilePath(ref index);
                         return TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), Interlocked.Increment(ref counter)));
                     }).ToArray();
@@ -98,7 +97,7 @@ namespace PicOptimizer {
                     await Task.WhenAll(tasks);
                     break;
                 case 2:// dwebp
-                    tasks = GetFiles(webp_ext, dropdata).Select(inf => {
+                    tasks = GetFiles(ext_dwebp, dropdata).Select(inf => {
                         string outf = GetTempFilePath(ref index);
                         return TaskAsync(dwebp, $"{dwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".png"), Interlocked.Increment(ref counter)));
                     }).ToArray();
@@ -109,7 +108,7 @@ namespace PicOptimizer {
                     await Task.WhenAll(tasks);
                     break;
                 case 3:// manga
-                    string[] dropfiles = GetFiles(archive_ext, dropdata).ToArray();
+                    string[] dropfiles = GetFiles(ext_archive, dropdata).ToArray();
                     if (!vm.Start(dropfiles.Length)) {
                         SystemSounds.Asterisk.Play();
                         return;
@@ -130,11 +129,11 @@ namespace PicOptimizer {
 
                         foreach (string inf in Directory.EnumerateFiles(topdir, "*.*", SearchOption.AllDirectories)) {
                             string outf;
-                            string ext = Path.GetExtension(inf).ToLower();
-                            if (jpg_ext.Contains(ext)) {
+                            string ext = Path.GetExtension(inf);
+                            if (ext_mozjpg.Contains(ext)) {
                                 outf = GetTempFilePath(ref index);
                                 optimizetasklist.Add(TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref tempdelta, inf, outf, ".jpg"), counter)));
-                            } else if (losslessimg_ext.Contains(ext)) {
+                            } else if (ext_cwebp.Contains(ext)) {
                                 outf = GetTempFilePath(ref index);
                                 optimizetasklist.Add(TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref tempdelta, inf, outf, ".webp"), counter)));
                             }
