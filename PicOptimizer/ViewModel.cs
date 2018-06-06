@@ -49,7 +49,7 @@ namespace PicOptimizer {
         }
         public void Update(long totaldelta, int counter) {
             Current.Value = counter;
-            DeltaText.Value = $"{SizeSuffix(totaldelta)} 減";
+            DeltaText.Value = SizeSuffix(totaldelta) + " 減";
         }
     }
 }

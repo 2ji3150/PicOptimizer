@@ -21,7 +21,7 @@ namespace PicOptimizer {
         readonly HashSet<string> ext_cwebp = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".bmp", ".png", ".tif", "tiff", ".webp" };
         readonly HashSet<string> ext_dwebp = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".webp" };
         readonly HashSet<string> ext_archive = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".rar", ".7z" };
-        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount);
+        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount/2);
         Stopwatch sw = new Stopwatch();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
@@ -30,16 +30,14 @@ namespace PicOptimizer {
             sw.Restart();
             string[] dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
             Task[] tasks;
+            List<Task> tasklist = new List<Task>();
             long totaldelta = 0;
-            int counter = 0, index = 0;
+            int counter = 0;
+            string tmp_now = Path.Combine("TEMP", DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss"));
+            Directory.CreateDirectory(tmp_now);
 
-            string time = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss");
-            string tmp_g = Path.Combine("TEMP", time, "G"), tmp_a = Path.Combine("TEMP", time, "A");
-            Directory.CreateDirectory(tmp_g);
 
             #region ローカル関数
-            string GetTempFilePath(ref int idnum) => Path.Combine(tmp_g, (++idnum).ToString());
-
             long Replace(ref long td, string file, string tempfile, string ext) {
                 try {
                     FileInfo fiI = new FileInfo(file) { IsReadOnly = false }, fiT = new FileInfo(tempfile);
@@ -75,87 +73,65 @@ namespace PicOptimizer {
 
             switch (vm.Index.Value) {
                 default://MozJpeg
-                    tasks = GetFiles(ext_mozjpg, dropdata).Select(inf => {
-                        string outf = GetTempFilePath(ref index);
-                        return TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), Interlocked.Increment(ref counter)));
+                    tasks = GetFiles(ext_mozjpg, dropdata).Select((item, index) => (item, index)).Select(x => {
+                        string outf = Path.Combine(tmp_now, x.index.ToString());
+                        return TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {x.item.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.item, outf, ".jpg"), Interlocked.Increment(ref counter)));
                     }).ToArray();
-                    if (!vm.Start(tasks.Length)) {
-                        SystemSounds.Asterisk.Play();
-                        return;
-                    }
-                    await Task.WhenAll(tasks);
                     break;
                 case 1:// cwebp
-                    tasks = GetFiles(ext_cwebp, dropdata).Select(inf => {
-                        string outf = GetTempFilePath(ref index);
-                        return TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), Interlocked.Increment(ref counter)));
+                    tasks = GetFiles(ext_cwebp, dropdata).Select((item, index) => (item, index)).Select(x => {
+                        string outf = Path.Combine(tmp_now, x.index.ToString());
+                        return TaskAsync(cwebp, $"{cwebp_sw} {x.item.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.item, outf, ".webp"), Interlocked.Increment(ref counter)));
                     }).ToArray();
-                    if (!vm.Start(tasks.Length)) {
-                        SystemSounds.Asterisk.Play();
-                        return;
-                    }
-                    await Task.WhenAll(tasks);
                     break;
                 case 2:// dwebp
-                    tasks = GetFiles(ext_dwebp, dropdata).Select(inf => {
-                        string outf = GetTempFilePath(ref index);
-                        return TaskAsync(dwebp, $"{dwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".png"), Interlocked.Increment(ref counter)));
+                    tasks = GetFiles(ext_dwebp, dropdata).Select((item, index) => (item, index)).Select(x => {
+                        string outf = Path.Combine(tmp_now, x.index.ToString());
+                        return TaskAsync(dwebp, $"{dwebp_sw} {x.item.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.item, outf, ".png"), Interlocked.Increment(ref counter)));
                     }).ToArray();
-                    if (!vm.Start(tasks.Length)) {
-                        SystemSounds.Asterisk.Play();
-                        return;
-                    }
-                    await Task.WhenAll(tasks);
                     break;
                 case 3:// manga
-                    string[] dropfiles = GetFiles(ext_archive, dropdata).ToArray();
-                    if (!vm.Start(dropfiles.Length)) {
-                        SystemSounds.Asterisk.Play();
-                        return;
-                    }
-                    DirectoryInfo di = new DirectoryInfo(tmp_a);
-
-                    foreach (string a in dropfiles) {
-                        di.Create();
-                        await RunProcessAsync(senvenzip, $"{senvenzip_sw} {a.WQ()} -o{tmp_a.WQ()}");
-                        #region Ruduce Top Level
-                        string topdir = tmp_a;
-                        while (Directory.EnumerateDirectories(topdir).Take(2).Count() == 1 && !Directory.EnumerateFiles(topdir).Any()) topdir += @"\" + Path.GetFileName(Directory.EnumerateDirectories(topdir).First());
-
-                        #endregion
-
-                        List<Task> optimizetasklist = new List<Task>();
-                        long tempdelta = totaldelta;
-
-                        foreach (string inf in Directory.EnumerateFiles(topdir, "*.*", SearchOption.AllDirectories)) {
-                            string outf;
-                            string ext = Path.GetExtension(inf);
-                            if (ext_mozjpg.Contains(ext)) {
-                                outf = GetTempFilePath(ref index);
-                                optimizetasklist.Add(TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref tempdelta, inf, outf, ".jpg"), counter)));
-                            } else if (ext_cwebp.Contains(ext)) {
-                                outf = GetTempFilePath(ref index);
-                                optimizetasklist.Add(TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref tempdelta, inf, outf, ".webp"), counter)));
+                    tasks = GetFiles(ext_archive, dropdata).Select((item, index) => (item, index)).Select(x => {
+                        string tmp_a = Path.Combine(tmp_now, x.index.ToString());
+                        DirectoryInfo di_a = Directory.CreateDirectory(tmp_a);
+                        return TaskAsync(senvenzip, $"{senvenzip_sw} {x.item.WQ()} -o{di_a.FullName.WQ()}").ContinueWith(async t => {
+                            #region Ruduce Top Level
+                            string topdir = tmp_a;
+                            while (Directory.EnumerateDirectories(topdir).Take(2).Count() == 1 && !Directory.EnumerateFiles(topdir).Any()) topdir += @"\" + Path.GetFileName(Directory.EnumerateDirectories(topdir).First());
+                            #endregion
+                            List<Task> optimizetasklist = new List<Task>();
+                            int gindex = 0;
+                            foreach (string inf in Directory.EnumerateFiles(topdir, "*.*", SearchOption.AllDirectories)) {
+                                string outf;
+                                string ext = Path.GetExtension(inf);
+                                if (ext_mozjpg.Contains(ext)) {
+                                    outf = Path.Combine(tmp_a, (++gindex).ToString());
+                                    optimizetasklist.Add(TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), counter)));
+                                } else if (ext_cwebp.Contains(ext)) {
+                                    outf = Path.Combine(tmp_a, (++gindex).ToString());
+                                    optimizetasklist.Add(TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), counter)));
+                                }
                             }
-                        }
-                        await Task.WhenAll(optimizetasklist);
-                        string outa = tmp_a + ".rar";
-                        await RunProcessAsync(winrar, $"{winrar_sw} {outa.WQ()} {(topdir + @"\").WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, a, outa, ".rar"), ++counter));
-                        di.Delete(true);
-                        di.Refresh();
-                    }
+                            await Task.WhenAll(optimizetasklist);
+                            string outa = tmp_a + ".rar";
+                            await TaskAsync(winrar, $"{winrar_sw} {outa.WQ()} {(topdir + @"\").WQ()}");
+                            vm.Update(Replace(ref totaldelta, x.item, outa, ".rar"), ++counter);
+                            di_a.Delete(true);
+                        }).Unwrap();
+                    }).ToArray();
                     break;
             }
+            if (!vm.Start(tasks.Length)) {
+                SystemSounds.Asterisk.Play();
+                return;
+            }
+            await Task.WhenAll(tasks);
             sw.Stop();
             TimeSpan ts = sw.Elapsed;
             SystemSounds.Asterisk.Play();
             MessageBox.Show($"完成しました\n\n処理にかかった時間 = {ts.Hours} 時間 {ts.Minutes} 分 {ts.Seconds} 秒 {ts.Milliseconds} ミリ秒");
             vm.Idle.Value = true;
         }
-
-
-
-
 
 #if DEBUG
         Task RunProcessAsync(string fn, string arg) {
