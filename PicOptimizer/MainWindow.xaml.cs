@@ -21,7 +21,7 @@ namespace PicOptimizer {
         readonly HashSet<string> ext_cwebp = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".bmp", ".png", ".tif", "tiff", ".webp" };
         readonly HashSet<string> ext_dwebp = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".webp" };
         readonly HashSet<string> ext_archive = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".rar", ".7z" };
-        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount/2);
+        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount / 2);
         Stopwatch sw = new Stopwatch();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
@@ -35,7 +35,6 @@ namespace PicOptimizer {
             int counter = 0;
             string tmp_now = Path.Combine("TEMP", DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss"));
             Directory.CreateDirectory(tmp_now);
-
 
             #region ローカル関数
             long Replace(ref long td, string file, string tempfile, string ext) {
@@ -143,7 +142,6 @@ namespace PicOptimizer {
             StringBuilder stdout = new StringBuilder(), stderr = new StringBuilder();
             p.OutputDataReceived += (s, e) => { if (e.Data != null) stdout.AppendLine(e.Data); };
             p.ErrorDataReceived += (s, e) => { if (e.Data != null) stderr.AppendLine(e.Data); };
-
             p.Exited += (s, e) => {
                 tcs.SetResult(true);
                 p.Dispose();
@@ -151,7 +149,6 @@ namespace PicOptimizer {
             p.Start();
             p.BeginOutputReadLine();
             p.BeginErrorReadLine();
-
             return tcs.Task;
         }
 #else
