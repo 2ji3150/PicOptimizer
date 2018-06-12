@@ -7,6 +7,7 @@ using System.Media;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 using System.Windows;
 
 namespace PicOptimizer {
@@ -35,6 +36,7 @@ namespace PicOptimizer {
             int counter = 0;
             string tmp_now = Path.Combine("TEMP", DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss"));
             Directory.CreateDirectory(tmp_now);
+
 
             #region ローカル関数
             long Replace(ref long td, string file, string tempfile, string ext) {
@@ -70,8 +72,47 @@ namespace PicOptimizer {
             }
             #endregion
 
+            int i = 0;
+            var MozjpegAction = new TransformBlock<string,long>(async file => {
+                string outf = Path.Combine(tmp_now, i++.ToString());
+                await RunProcessAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {file.WQ()}");
+                FileInfo fiI = new FileInfo(file) { IsReadOnly = false }, fiT = new FileInfo(outf);
+                if (fiT.Length <= 0) throw new Exception("生成したファイルが破損");
+                fiI.Delete();
+                fiT.MoveTo(Path.ChangeExtension(file, ".jpg"));
+                return fiI.Length - fiT.Length;
+            });
+
+            var CwebpAction = new ActionBlock<string>(async file => {
+                string outf = Path.Combine(tmp_now, i++.ToString());
+                await RunProcessAsync(cwebp, $"{cwebp_sw} {file.WQ()} -o {outf.WQ()}");
+            });
+
+            var DwebpAction = new ActionBlock<string>(async file => {
+                string outf = Path.Combine(tmp_now, i++.ToString());
+                await RunProcessAsync(dwebp, $"{dwebp_sw} {file.WQ()} -o {outf.WQ()}");
+            });
+
+            var DecompressAction = new ActionBlock<string>(async file => {
+                string tmp_a = Path.Combine(tmp_now, i++.ToString());
+                DirectoryInfo di_a = Directory.CreateDirectory(tmp_a);
+                await RunProcessAsync(senvenzip, $"{senvenzip_sw} {file} -o{di_a.FullName.WQ()}");
+            });
+
+            var CompressAction = new ActionBlock<string>(async file => {
+                string tmp_a = Path.Combine(tmp_now, i++.ToString());
+                DirectoryInfo di_a = Directory.CreateDirectory(tmp_a);
+                string outa = tmp_a + ".rar";
+                await RunProcessAsync(winrar, $"{winrar_sw} {outa.WQ()} {(topdir + @"\").WQ()}");
+            });
+
+            
+
+
             switch (vm.Index.Value) {
                 default://MozJpeg
+                    GetFiles(ext_mozjpg, dropdata).Select(f => MozjpegAction.Post(f));
+                    MozjpegAction.Complete();
                     tasks = GetFiles(ext_mozjpg, dropdata).Select((item, index) => (item, index)).Select(x => {
                         string outf = Path.Combine(tmp_now, x.index.ToString());
                         return TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {x.item.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.item, outf, ".jpg"), Interlocked.Increment(ref counter)));
