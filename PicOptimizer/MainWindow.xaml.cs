@@ -66,7 +66,7 @@ namespace PicOptimizer {
             async Task TaskAsync(string exe, string arg) {
                 await sem.WaitAsync();
                 try {
-                    await RunProcessAsync(exe, arg);
+                    await new Process { StartInfo = { FileName = exe, Arguments = arg, UseShellExecute = false, CreateNoWindow = true }, }.WaitForExitAsync();
                 } finally {
                     sem.Release();
                 }
@@ -135,26 +135,7 @@ namespace PicOptimizer {
             vm.Idle.Value = true;
         }
 
-#if DEBUG
-        Task RunProcessAsync(string fn, string arg) {
-            TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
-            Process p = new Process {
-                StartInfo = { FileName = fn, Arguments = arg, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true },
-                EnableRaisingEvents = true
-            };
-            StringBuilder stdout = new StringBuilder(), stderr = new StringBuilder();
-            p.OutputDataReceived += (s, e) => { if (e.Data != null) stdout.AppendLine(e.Data); };
-            p.ErrorDataReceived += (s, e) => { if (e.Data != null) stderr.AppendLine(e.Data); };
-            p.Exited += (s, e) => {
-                tcs.SetResult(true);
-                p.Dispose();
-            };
-            p.Start();
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
-            return tcs.Task;
-        }
-#else
+
         Task RunProcessAsync(string fn, string arg) {
             TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
             Process p = new Process {
@@ -168,10 +149,23 @@ namespace PicOptimizer {
             p.Start();
             return tcs.Task;
         }
-#endif
+
 
     }
     public static class StringExtensionMethods {
         public static string WQ(this string text) => $@"""{text}""";
+    }
+
+    public static class ProcessExtensions {
+        public static Task WaitForExitAsync(this Process p) {
+            TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+            p.EnableRaisingEvents = true;
+            p.Exited += (s, e) => {
+                tcs.SetResult(true);
+                p.Dispose();
+            };
+            p.Start();
+            return tcs.Task;
+        }
     }
 }
