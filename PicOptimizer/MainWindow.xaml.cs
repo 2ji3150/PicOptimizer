@@ -22,7 +22,7 @@ namespace PicOptimizer {
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".webp" },
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".rar", ".7z" }
         };
-        SemaphoreSlim sem = new SemaphoreSlim(12);
+        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount);
         Stopwatch sw = new Stopwatch();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
@@ -94,7 +94,6 @@ namespace PicOptimizer {
                     break;
                 case 3:// manga
                     int gindex = 0;
-
                     tasks = GetFiles().Select(async x => {
                         Directory.CreateDirectory(x.outf);
                         await TaskAsyncMut(senvenzip, $"{senvenzip_sw} {x.inf.WQ()} -o{x.outf.WQ()}");
@@ -118,9 +117,6 @@ namespace PicOptimizer {
                         string outa = x.outf + ".rar";
                         await TaskAsyncMut(winrar, $"{winrar_sw} {outa.WQ()} {(topdir + @"\").WQ()}");
                         vm.Update(Replace(ref totaldelta, x.inf, outa, ".rar"), Interlocked.Increment(ref counter));
-                        TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
-                        tcs.SetResult(true);
-                        return tcs.Task;
                     }).ToArray();
                     break;
             }
