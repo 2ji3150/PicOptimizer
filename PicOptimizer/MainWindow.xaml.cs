@@ -29,7 +29,6 @@ namespace PicOptimizer {
             ViewModel vm = (ViewModel)DataContext;
             vm.Idle.Value = false;
             sw.Restart();
-            string[] dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
             Task[] tasks;
             long totaldelta = 0;
             int counter = 0;
@@ -56,7 +55,7 @@ namespace PicOptimizer {
             IEnumerable<(string inf, string outf)> GetFiles() {
                 bool checkext(string file) => exts[vm.Index.Value].Contains(Path.GetExtension(file));
                 string outf() => Path.Combine(tmp_now, (++i).ToString());
-                foreach (string d in dropdata) {
+                foreach (string d in (string[])e.Data.GetData(DataFormats.FileDrop)) {
                     if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
                         foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).AsParallel().Where(f => checkext(f))) yield return (f, outf());
                     } else if (checkext(d)) yield return (d, outf());

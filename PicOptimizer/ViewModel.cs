@@ -33,7 +33,6 @@ namespace PicOptimizer {
                 mag += 1;
                 adjustedSize /= 1024;
             }
-            Console.WriteLine(adjustedSize.ToString());
             return $"{adjustedSize:n}{decimalPlaces} {SizeSuffixes[mag]}";
         }
 
