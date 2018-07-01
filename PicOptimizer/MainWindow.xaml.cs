@@ -22,7 +22,7 @@ namespace PicOptimizer {
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".webp" },
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".rar", ".7z" }
         };
-        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount);
+        SemaphoreSlim sem = new SemaphoreSlim(12);
         Stopwatch sw = new Stopwatch();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
@@ -52,72 +52,75 @@ namespace PicOptimizer {
                 }
             }
 
-            IEnumerable<string> GetFiles() {
-                bool checkext(string ext) => exts[vm.Index.Value].Contains(ext);
+            int i = 0;
+            IEnumerable<(string inf, string outf)> GetFiles() {
+                bool checkext(string file) => exts[vm.Index.Value].Contains(Path.GetExtension(file));
+                string outf() => Path.Combine(tmp_now, (++i).ToString());
                 foreach (string d in dropdata) {
                     if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                        foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).AsParallel().Where(f => checkext((Path.GetExtension(f))))) yield return f;
-                    } else if (checkext(Path.GetExtension(d))) yield return d;
+                        foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).AsParallel().Where(f => checkext(f))) yield return (f, outf());
+                    } else if (checkext(d)) yield return (d, outf());
                 }
             }
 
             async Task TaskAsync(string exe, string arg) {
                 await sem.WaitAsync();
                 try {
-                    await new Process { StartInfo = { FileName = exe, Arguments = arg, UseShellExecute = false, CreateNoWindow = true }, }.WaitForExitAsync();
+                    await new Process { StartInfo = { FileName = exe, Arguments = arg, UseShellExecute = false, CreateNoWindow = true } }.WaitForExitAsync();
                 } finally {
                     sem.Release();
+                }
+            }
+            Mutex mut = new Mutex();
+            async Task TaskAsyncMut(string exe, string arg) {
+                mut.WaitOne();
+                try {
+                    await new Process { StartInfo = { FileName = exe, Arguments = arg, UseShellExecute = false, CreateNoWindow = true } }.WaitForExitAsync();
+                } finally {
+                    mut.ReleaseMutex();
                 }
             }
             #endregion
 
             switch (vm.Index.Value) {
                 default://MozJpeg
-                    tasks = GetFiles().Select((item, index) => (item, index)).Select(x => {
-                        string outf = Path.Combine(tmp_now, x.index.ToString());
-                        return TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {x.item.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.item, outf, ".jpg"), Interlocked.Increment(ref counter)));
-                    }).ToArray();
+                    tasks = GetFiles().Select(x => TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {x.outf.WQ()} {x.inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".jpg"), Interlocked.Increment(ref counter)))).ToArray();
                     break;
                 case 1:// cwebp
-                    tasks = GetFiles().Select((item, index) => (item, index)).Select(x => {
-                        string outf = Path.Combine(tmp_now, x.index.ToString());
-                        return TaskAsync(cwebp, $"{cwebp_sw} {x.item.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.item, outf, ".webp"), Interlocked.Increment(ref counter)));
-                    }).ToArray();
+                    tasks = GetFiles().Select(x => TaskAsync(cwebp, $"{cwebp_sw} {x.inf.WQ()} -o {x.outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".webp"), Interlocked.Increment(ref counter)))).ToArray();
                     break;
                 case 2:// dwebp
-                    tasks = GetFiles().Select((item, index) => (item, index)).Select(x => {
-                        string outf = Path.Combine(tmp_now, x.index.ToString());
-                        return TaskAsync(dwebp, $"{dwebp_sw} {x.item.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.item, outf, ".png"), Interlocked.Increment(ref counter)));
-                    }).ToArray();
+                    tasks = GetFiles().Select(x => TaskAsync(dwebp, $"{dwebp_sw} {x.inf.WQ()} -o {x.outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".png"), Interlocked.Increment(ref counter)))).ToArray();
                     break;
                 case 3:// manga
-                    tasks = GetFiles().Select((item, index) => (item, index)).Select(x => {
-                        string tmp_a = Path.Combine(tmp_now, x.index.ToString());
-                        DirectoryInfo di_a = Directory.CreateDirectory(tmp_a);
-                        return TaskAsync(senvenzip, $"{senvenzip_sw} {x.item.WQ()} -o{di_a.FullName.WQ()}").ContinueWith(async t => {
-                            #region Ruduce Top Level
-                            string topdir = tmp_a;
-                            while (Directory.EnumerateDirectories(topdir).Take(2).Count() == 1 && !Directory.EnumerateFiles(topdir).Any()) topdir += @"\" + Path.GetFileName(Directory.EnumerateDirectories(topdir).First());
-                            #endregion
-                            List<Task> optimizetasklist = new List<Task>();
-                            int gindex = 0;
-                            foreach (string inf in Directory.EnumerateFiles(topdir, "*.*", SearchOption.AllDirectories)) {
-                                string outf;
-                                string ext = Path.GetExtension(inf);
-                                if (exts[0].Contains(ext)) {
-                                    outf = Path.Combine(tmp_a, (++gindex).ToString());
-                                    optimizetasklist.Add(TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), counter)));
-                                } else if (exts[1].Contains(ext)) {
-                                    outf = Path.Combine(tmp_a, (++gindex).ToString());
-                                    optimizetasklist.Add(TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), counter)));
-                                }
+                    int gindex = 0;
+
+                    tasks = GetFiles().Select(async x => {
+                        Directory.CreateDirectory(x.outf);
+                        await TaskAsyncMut(senvenzip, $"{senvenzip_sw} {x.inf.WQ()} -o{x.outf.WQ()}");
+                        #region Ruduce Top Level
+                        string topdir = x.outf;
+                        while (Directory.EnumerateDirectories(topdir).Take(2).Count() == 1 && !Directory.EnumerateFiles(topdir).Any()) topdir += @"\" + Path.GetFileName(Directory.EnumerateDirectories(topdir).First());
+                        #endregion
+                        List<Task> optimizetasklist = new List<Task>();
+                        foreach (string inf in Directory.EnumerateFiles(topdir, "*.*", SearchOption.AllDirectories)) {
+                            string outf;
+                            string ext = Path.GetExtension(inf);
+                            if (exts[0].Contains(ext)) {
+                                outf = Path.Combine(tmp_now, "g" + Interlocked.Increment(ref gindex).ToString());
+                                optimizetasklist.Add(TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), counter)));
+                            } else if (exts[1].Contains(ext)) {
+                                outf = Path.Combine(tmp_now, "g" + Interlocked.Increment(ref gindex).ToString());
+                                optimizetasklist.Add(TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), counter)));
                             }
-                            await Task.WhenAll(optimizetasklist);
-                            string outa = tmp_a + ".rar";
-                            await TaskAsync(winrar, $"{winrar_sw} {outa.WQ()} {(topdir + @"\").WQ()}");
-                            vm.Update(Replace(ref totaldelta, x.item, outa, ".rar"), ++counter);
-                            di_a.Delete(true);
-                        }).Unwrap();
+                        }
+                        await Task.WhenAll(optimizetasklist);
+                        string outa = x.outf + ".rar";
+                        await TaskAsyncMut(winrar, $"{winrar_sw} {outa.WQ()} {(topdir + @"\").WQ()}");
+                        vm.Update(Replace(ref totaldelta, x.inf, outa, ".rar"), Interlocked.Increment(ref counter));
+                        TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+                        tcs.SetResult(true);
+                        return tcs.Task;
                     }).ToArray();
                     break;
             }
@@ -126,6 +129,7 @@ namespace PicOptimizer {
                 return;
             }
             await Task.WhenAll(tasks);
+            Directory.Delete(tmp_now, true);
             sw.Stop();
             TimeSpan ts = sw.Elapsed;
             SystemSounds.Asterisk.Play();
