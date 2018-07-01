@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Media;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -32,7 +31,6 @@ namespace PicOptimizer {
             sw.Restart();
             string[] dropdata = (string[])e.Data.GetData(DataFormats.FileDrop);
             Task[] tasks;
-            List<Task> tasklist = new List<Task>();
             long totaldelta = 0;
             int counter = 0;
             string tmp_now = Path.Combine("TEMP", DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss"));
@@ -134,23 +132,6 @@ namespace PicOptimizer {
             MessageBox.Show($"完成しました\n\n処理にかかった時間 = {ts.Hours} 時間 {ts.Minutes} 分 {ts.Seconds} 秒 {ts.Milliseconds} ミリ秒");
             vm.Idle.Value = true;
         }
-
-
-        Task RunProcessAsync(string fn, string arg) {
-            TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
-            Process p = new Process {
-                StartInfo = { FileName = fn, Arguments = arg, UseShellExecute = false, CreateNoWindow = true },
-                EnableRaisingEvents = true
-            };
-            p.Exited += (s, e) => {
-                tcs.SetResult(true);
-                p.Dispose();
-            };
-            p.Start();
-            return tcs.Task;
-        }
-
-
     }
     public static class StringExtensionMethods {
         public static string WQ(this string text) => $@"""{text}""";
