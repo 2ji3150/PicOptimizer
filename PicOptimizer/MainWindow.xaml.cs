@@ -17,11 +17,13 @@ namespace PicOptimizer {
         const string mozjpeg = @"tools\jpegtran-static", mozjpeg_sw = "-copy all";
         const string winrar = @"tools\Rar", winrar_sw = "a -m5 -md1024m -ep1 -r -idq";
         const string senvenzip = @"tools\7z", senvenzip_sw = "x";
-        readonly HashSet<string> ext_mozjpg = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg" };
-        readonly HashSet<string> ext_cwebp = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".bmp", ".png", ".tif", "tiff", ".webp" };
-        readonly HashSet<string> ext_dwebp = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".webp" };
-        readonly HashSet<string> ext_archive = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".rar", ".7z" };
-        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount / 2);
+        readonly HashSet<string>[] exts = new HashSet<string>[] {
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg" },
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".bmp", ".png", ".tif", "tiff", ".webp" },
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".webp" },
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".rar", ".7z" }
+        };
+        SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount);
         Stopwatch sw = new Stopwatch();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
@@ -52,11 +54,12 @@ namespace PicOptimizer {
                 }
             }
 
-            IEnumerable<string> GetFiles(HashSet<string> exts, string[] data) {
-                foreach (string d in data) {
+            IEnumerable<string> GetFiles() {
+                bool checkext(string ext) => exts[vm.Index.Value].Contains(ext);
+                foreach (string d in dropdata) {
                     if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                        foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).Where(f => exts.Contains(Path.GetExtension(f)))) yield return f;
-                    } else if (exts.Contains(Path.GetExtension(d))) yield return d;
+                        foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).AsParallel().Where(f => checkext((Path.GetExtension(f))))) yield return f;
+                    } else if (checkext(Path.GetExtension(d))) yield return d;
                 }
             }
 
@@ -72,25 +75,25 @@ namespace PicOptimizer {
 
             switch (vm.Index.Value) {
                 default://MozJpeg
-                    tasks = GetFiles(ext_mozjpg, dropdata).Select((item, index) => (item, index)).Select(x => {
+                    tasks = GetFiles().Select((item, index) => (item, index)).Select(x => {
                         string outf = Path.Combine(tmp_now, x.index.ToString());
                         return TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {x.item.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.item, outf, ".jpg"), Interlocked.Increment(ref counter)));
                     }).ToArray();
                     break;
                 case 1:// cwebp
-                    tasks = GetFiles(ext_cwebp, dropdata).Select((item, index) => (item, index)).Select(x => {
+                    tasks = GetFiles().Select((item, index) => (item, index)).Select(x => {
                         string outf = Path.Combine(tmp_now, x.index.ToString());
                         return TaskAsync(cwebp, $"{cwebp_sw} {x.item.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.item, outf, ".webp"), Interlocked.Increment(ref counter)));
                     }).ToArray();
                     break;
                 case 2:// dwebp
-                    tasks = GetFiles(ext_dwebp, dropdata).Select((item, index) => (item, index)).Select(x => {
+                    tasks = GetFiles().Select((item, index) => (item, index)).Select(x => {
                         string outf = Path.Combine(tmp_now, x.index.ToString());
                         return TaskAsync(dwebp, $"{dwebp_sw} {x.item.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.item, outf, ".png"), Interlocked.Increment(ref counter)));
                     }).ToArray();
                     break;
                 case 3:// manga
-                    tasks = GetFiles(ext_archive, dropdata).Select((item, index) => (item, index)).Select(x => {
+                    tasks = GetFiles().Select((item, index) => (item, index)).Select(x => {
                         string tmp_a = Path.Combine(tmp_now, x.index.ToString());
                         DirectoryInfo di_a = Directory.CreateDirectory(tmp_a);
                         return TaskAsync(senvenzip, $"{senvenzip_sw} {x.item.WQ()} -o{di_a.FullName.WQ()}").ContinueWith(async t => {
@@ -103,10 +106,10 @@ namespace PicOptimizer {
                             foreach (string inf in Directory.EnumerateFiles(topdir, "*.*", SearchOption.AllDirectories)) {
                                 string outf;
                                 string ext = Path.GetExtension(inf);
-                                if (ext_mozjpg.Contains(ext)) {
+                                if (exts[0].Contains(ext)) {
                                     outf = Path.Combine(tmp_a, (++gindex).ToString());
                                     optimizetasklist.Add(TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), counter)));
-                                } else if (ext_cwebp.Contains(ext)) {
+                                } else if (exts[1].Contains(ext)) {
                                     outf = Path.Combine(tmp_a, (++gindex).ToString());
                                     optimizetasklist.Add(TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), counter)));
                                 }
