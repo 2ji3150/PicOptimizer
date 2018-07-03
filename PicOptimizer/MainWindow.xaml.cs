@@ -23,6 +23,7 @@ namespace PicOptimizer {
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".rar", ".7z" }
         };
         SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount);
+        SemaphoreSlim mut = new SemaphoreSlim(1);
         Stopwatch sw = new Stopwatch();
         private void Window_DragEnter(object sender, DragEventArgs e) => e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         private async void Window_Drop(object sender, DragEventArgs e) {
@@ -70,15 +71,16 @@ namespace PicOptimizer {
                     sem.Release();
                 }
             }
-            Mutex mut = new Mutex();
+
             async Task TaskAsyncMut(string exe, string arg) {
-                mut.WaitOne();
+                await mut.WaitAsync();
                 try {
                     await new Process { StartInfo = { FileName = exe, Arguments = arg, UseShellExecute = false, CreateNoWindow = true } }.WaitForExitAsync();
                 } finally {
-                    mut.ReleaseMutex();
+                    mut.Release();
                 }
             }
+
             #endregion
 
             switch (vm.Index.Value) {
@@ -93,7 +95,8 @@ namespace PicOptimizer {
                     break;
                 case 3:// manga
                     int gindex = 0;
-                    tasks = GetFiles().Select(async x => {
+                    tasks = GetFiles().Select(async x =>
+                    {
                         Directory.CreateDirectory(x.outf);
                         await TaskAsyncMut(senvenzip, $"{senvenzip_sw} {x.inf.WQ()} -o{x.outf.WQ()}");
                         #region Ruduce Top Level
@@ -140,7 +143,8 @@ namespace PicOptimizer {
         public static Task WaitForExitAsync(this Process p) {
             TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
             p.EnableRaisingEvents = true;
-            p.Exited += (s, e) => {
+            p.Exited += (s, e) =>
+            {
                 tcs.SetResult(true);
                 p.Dispose();
             };
