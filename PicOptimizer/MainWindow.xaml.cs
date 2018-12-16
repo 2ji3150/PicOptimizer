@@ -14,7 +14,7 @@ namespace PicOptimizer {
         const string cwebp = @"D:\FIONE\bin\libwebp\cwebp", cwebp_sw = "-quiet -mt -lossless -m 6 -q 100";
         const string dwebp = @"D:\FIONE\bin\libwebp\dwebp", dwebp_sw = "-quiet -mt";
         const string mozjpeg = @"D:\FIONE\bin\mozjpeg\jpegtran-static", mozjpeg_sw = "-copy all";
-        const string winrar = @"%ProgramFiles%\WinRAR\winrar", extract_sw = "x -ai -ibck", rar_sw = "a -m5 -md1024m -ep1 -r -ibck";
+        const string winrar = @"C:\Program Files\WinRAR\winrar", extract_sw = "x -ai -ibck", rar_sw = "a -m5 -md1024m -ep1 -r -ibck";
         readonly HashSet<string>[] exts = new HashSet<string>[] {
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg" },
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".bmp", ".png", ".tif", "tiff", ".webp" },
@@ -95,7 +95,6 @@ namespace PicOptimizer {
                 case 3:// manga
                     int gindex = 0;
                     tasks = GetFiles().Select(async x => {
-                        Directory.CreateDirectory(x.outf);
                         await TaskAsyncMut(winrar, $"{extract_sw} {x.inf.WQ()} {(x.outf + @"\").WQ()}");
                         List<Task> optimizetasklist = new List<Task>();
                         foreach (string inf in Directory.EnumerateFiles(x.outf, "*.*", SearchOption.AllDirectories)) {
