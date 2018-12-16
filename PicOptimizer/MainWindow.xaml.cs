@@ -14,7 +14,7 @@ namespace PicOptimizer {
         const string cwebp = @"/C D:\FIONE\bin\libwebp\cwebp -quiet -mt -lossless -m 6 -q 100";
         const string dwebp = @"/C D:\FIONE\bin\libwebp\dwebp -quiet -mt";
         const string mozjpeg = @"/C D:\FIONE\bin\mozjpeg\jpegtran-static -copy none";
-        const string winrar = @"C:\Program Files\WinRAR\winrar", extract_sw = "x -ai -ibck", rar_sw = "a -m5 -md1024m -ep1 -r -ibck";
+        const string unrar = "/C WinRAR x -ai -ibck", rar = "/C WinRAR a -m5 -md1024m -ep1 -r -ibck";
         readonly HashSet<string>[] exts = new HashSet<string>[] {
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg" },
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".bmp", ".png", ".tif", "tiff", ".webp" },
@@ -62,22 +62,30 @@ namespace PicOptimizer {
                 }
             }
 
-            async Task TaskAsync(string arg) {
+            async Task<bool> TaskAsync(string arg) {
                 await sem.WaitAsync();
-                try {
-                    using (Process p = Process.Start(new ProcessStartInfo("cmd.exe", arg) { UseShellExecute = false, CreateNoWindow = true })) await p.WaitForExitAsync();
-                } finally {
+                Process p = Process.Start(new ProcessStartInfo("cmd.exe", arg) { UseShellExecute = false, CreateNoWindow = true });
+                p.EnableRaisingEvents = true;
+                TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+                p.Exited += (s, a) => {
                     sem.Release();
-                }
+                    p.Dispose();
+                    tcs.TrySetResult(true);
+                };
+                return await tcs.Task;
             }
 
-            async Task TaskAsyncMut(string exe, string arg) {
+            async Task<bool> TaskAsyncMut(string arg) {
                 await mut.WaitAsync();
-                try {
-                    await new Process { StartInfo = { FileName = exe, Arguments = arg, UseShellExecute = false, CreateNoWindow = true } }.WaitForExitAsync();
-                } finally {
+                Process p = Process.Start(new ProcessStartInfo("cmd.exe", arg) { UseShellExecute = false, CreateNoWindow = true });
+                p.EnableRaisingEvents = true;
+                TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+                p.Exited += (s, a) => {
                     mut.Release();
-                }
+                    p.Dispose();
+                    tcs.TrySetResult(true);
+                };
+                return await tcs.Task;
             }
 
             #endregion
@@ -95,7 +103,7 @@ namespace PicOptimizer {
                 case 3:// manga
                     int gindex = 0;
                     tasks = GetFiles().Select(async x => {
-                        await TaskAsyncMut(winrar, $"{extract_sw} {x.inf.WQ()} {(x.outf + @"\").WQ()}");
+                        await TaskAsyncMut($"{unrar} {x.inf.WQ()} {(x.outf + @"\").WQ()}");
                         List<Task> optimizetasklist = new List<Task>();
                         foreach (string inf in Directory.EnumerateFiles(x.outf, "*.*", SearchOption.AllDirectories)) {
                             string outf;
@@ -110,7 +118,7 @@ namespace PicOptimizer {
                         }
                         await Task.WhenAll(optimizetasklist);
                         string outa = x.outf + ".rar";
-                        await TaskAsyncMut(winrar, $"{rar_sw} {outa.WQ()} {(x.outf + @"\").WQ()}");
+                        await TaskAsyncMut($"{rar} {outa.WQ()} {(x.outf + @"\").WQ()}");
                         vm.Update(Replace(ref totaldelta, x.inf, outa, ".rar"), Interlocked.Increment(ref counter));
                     }).ToArray();
                     break;
@@ -130,18 +138,5 @@ namespace PicOptimizer {
     }
     public static class StringExtensionMethods {
         public static string WQ(this string text) => $@"""{text}""";
-    }
-
-    public static class ProcessExtensions {
-        public static Task WaitForExitAsync(this Process p) {
-            TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
-            p.EnableRaisingEvents = true;
-            p.Exited += (s, e) => {
-                tcs.SetResult(true);
-                p.Dispose();
-            };
-            p.Start();
-            return tcs.Task;
-        }
     }
 }
