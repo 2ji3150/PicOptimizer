@@ -11,9 +11,9 @@ using System.Windows;
 namespace PicOptimizer {
     public partial class MainWindow : Window {
         public MainWindow() => InitializeComponent();
-        const string cwebp = @"D:\FIONE\bin\libwebp\cwebp", cwebp_sw = "-quiet -mt -lossless -m 6 -q 100";
-        const string dwebp = @"D:\FIONE\bin\libwebp\dwebp", dwebp_sw = "-quiet -mt";
-        const string mozjpeg = @"D:\FIONE\bin\mozjpeg\jpegtran-static", mozjpeg_sw = "-copy all";
+        const string cwebp = @"/C D:\FIONE\bin\libwebp\cwebp -quiet -mt -lossless -m 6 -q 100";
+        const string dwebp = @"/C D:\FIONE\bin\libwebp\dwebp -quiet -mt";
+        const string mozjpeg = @"/C D:\FIONE\bin\mozjpeg\jpegtran-static -copy none";
         const string winrar = @"C:\Program Files\WinRAR\winrar", extract_sw = "x -ai -ibck", rar_sw = "a -m5 -md1024m -ep1 -r -ibck";
         readonly HashSet<string>[] exts = new HashSet<string>[] {
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg" },
@@ -62,10 +62,10 @@ namespace PicOptimizer {
                 }
             }
 
-            async Task TaskAsync(string exe, string arg) {
+            async Task TaskAsync(string arg) {
                 await sem.WaitAsync();
                 try {
-                    await new Process { StartInfo = { FileName = exe, Arguments = arg, UseShellExecute = false, CreateNoWindow = true } }.WaitForExitAsync();
+                    using (Process p = Process.Start(new ProcessStartInfo("cmd.exe", arg) { UseShellExecute = false, CreateNoWindow = true })) await p.WaitForExitAsync();
                 } finally {
                     sem.Release();
                 }
@@ -84,13 +84,13 @@ namespace PicOptimizer {
 
             switch (vm.Index.Value) {
                 default://MozJpeg
-                    tasks = GetFiles().Select(x => TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {x.outf.WQ()} {x.inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".jpg"), Interlocked.Increment(ref counter)))).ToArray();
+                    tasks = GetFiles().Select(x => TaskAsync($"{mozjpeg} -outfile {x.outf.WQ()} {x.inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".jpg"), Interlocked.Increment(ref counter)))).ToArray();
                     break;
                 case 1:// cwebp
-                    tasks = GetFiles().Select(x => TaskAsync(cwebp, $"{cwebp_sw} {x.inf.WQ()} -o {x.outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".webp"), Interlocked.Increment(ref counter)))).ToArray();
+                    tasks = GetFiles().Select(x => TaskAsync($"{cwebp} {x.inf.WQ()} -o {x.outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".webp"), Interlocked.Increment(ref counter)))).ToArray();
                     break;
                 case 2:// dwebp
-                    tasks = GetFiles().Select(x => TaskAsync(dwebp, $"{dwebp_sw} {x.inf.WQ()} -o {x.outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".png"), Interlocked.Increment(ref counter)))).ToArray();
+                    tasks = GetFiles().Select(x => TaskAsync($"{dwebp} {x.inf.WQ()} -o {x.outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".png"), Interlocked.Increment(ref counter)))).ToArray();
                     break;
                 case 3:// manga
                     int gindex = 0;
@@ -102,10 +102,10 @@ namespace PicOptimizer {
                             string ext = Path.GetExtension(inf);
                             if (exts[0].Contains(ext)) {
                                 outf = Path.Combine(tmp_now, "g" + Interlocked.Increment(ref gindex).ToString());
-                                optimizetasklist.Add(TaskAsync(mozjpeg, $"{mozjpeg_sw} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), counter)));
+                                optimizetasklist.Add(TaskAsync($"{mozjpeg} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), counter)));
                             } else if (exts[1].Contains(ext)) {
                                 outf = Path.Combine(tmp_now, "g" + Interlocked.Increment(ref gindex).ToString());
-                                optimizetasklist.Add(TaskAsync(cwebp, $"{cwebp_sw} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), counter)));
+                                optimizetasklist.Add(TaskAsync($"{cwebp} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), counter)));
                             }
                         }
                         await Task.WhenAll(optimizetasklist);
