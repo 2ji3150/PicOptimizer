@@ -11,11 +11,10 @@ using System.Windows;
 namespace PicOptimizer {
     public partial class MainWindow : Window {
         public MainWindow() => InitializeComponent();
-        const string cwebp = @"tools\cwebp", cwebp_sw = "-quiet -mt -lossless -m 6 -q 100";
-        const string dwebp = @"tools\dwebp", dwebp_sw = "-quiet -mt";
-        const string mozjpeg = @"tools\jpegtran-static", mozjpeg_sw = "-copy all";
-        const string winrar = @"tools\Rar", winrar_sw = "a -m5 -md1024m -ep1 -r -idq";
-        const string senvenzip = @"tools\7z", senvenzip_sw = "x";
+        const string cwebp = @"D:\FIONE\bin\libwebp\cwebp", cwebp_sw = "-quiet -mt -lossless -m 6 -q 100";
+        const string dwebp = @"D:\FIONE\bin\libwebp\dwebp", dwebp_sw = "-quiet -mt";
+        const string mozjpeg = @"D:\FIONE\bin\mozjpeg\jpegtran-static", mozjpeg_sw = "-copy all";
+        const string winrar = @"%ProgramFiles%\WinRAR\winrar", extract_sw = "x -ai -ibck", rar_sw = "a -m5 -md1024m -ep1 -r -ibck";
         readonly HashSet<string>[] exts = new HashSet<string>[] {
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg" },
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".bmp", ".png", ".tif", "tiff", ".webp" },
@@ -95,10 +94,9 @@ namespace PicOptimizer {
                     break;
                 case 3:// manga
                     int gindex = 0;
-                    tasks = GetFiles().Select(async x =>
-                    {
+                    tasks = GetFiles().Select(async x => {
                         Directory.CreateDirectory(x.outf);
-                        await TaskAsyncMut(senvenzip, $"{senvenzip_sw} {x.inf.WQ()} -o{x.outf.WQ()}");
+                        await TaskAsyncMut(winrar, $"{extract_sw} {x.inf.WQ()} {(x.outf + @"\").WQ()}");
                         #region Ruduce Top Level
                         string topdir = x.outf;
                         while (Directory.EnumerateDirectories(topdir).Take(2).Count() == 1 && !Directory.EnumerateFiles(topdir).Any()) topdir += @"\" + Path.GetFileName(Directory.EnumerateDirectories(topdir).First());
@@ -117,7 +115,7 @@ namespace PicOptimizer {
                         }
                         await Task.WhenAll(optimizetasklist);
                         string outa = x.outf + ".rar";
-                        await TaskAsyncMut(winrar, $"{winrar_sw} {outa.WQ()} {(topdir + @"\").WQ()}");
+                        await TaskAsyncMut(winrar, $"{rar_sw} {outa.WQ()} {(topdir + @"\").WQ()}");
                         vm.Update(Replace(ref totaldelta, x.inf, outa, ".rar"), Interlocked.Increment(ref counter));
                     }).ToArray();
                     break;
@@ -143,8 +141,7 @@ namespace PicOptimizer {
         public static Task WaitForExitAsync(this Process p) {
             TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
             p.EnableRaisingEvents = true;
-            p.Exited += (s, e) =>
-            {
+            p.Exited += (s, e) => {
                 tcs.SetResult(true);
                 p.Dispose();
             };
