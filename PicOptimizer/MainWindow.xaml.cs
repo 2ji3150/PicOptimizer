@@ -97,12 +97,8 @@ namespace PicOptimizer {
                     tasks = GetFiles().Select(async x => {
                         Directory.CreateDirectory(x.outf);
                         await TaskAsyncMut(winrar, $"{extract_sw} {x.inf.WQ()} {(x.outf + @"\").WQ()}");
-                        #region Ruduce Top Level
-                        string topdir = x.outf;
-                        while (Directory.EnumerateDirectories(topdir).Take(2).Count() == 1 && !Directory.EnumerateFiles(topdir).Any()) topdir += @"\" + Path.GetFileName(Directory.EnumerateDirectories(topdir).First());
-                        #endregion
                         List<Task> optimizetasklist = new List<Task>();
-                        foreach (string inf in Directory.EnumerateFiles(topdir, "*.*", SearchOption.AllDirectories)) {
+                        foreach (string inf in Directory.EnumerateFiles(x.outf, "*.*", SearchOption.AllDirectories)) {
                             string outf;
                             string ext = Path.GetExtension(inf);
                             if (exts[0].Contains(ext)) {
@@ -115,7 +111,7 @@ namespace PicOptimizer {
                         }
                         await Task.WhenAll(optimizetasklist);
                         string outa = x.outf + ".rar";
-                        await TaskAsyncMut(winrar, $"{rar_sw} {outa.WQ()} {(topdir + @"\").WQ()}");
+                        await TaskAsyncMut(winrar, $"{rar_sw} {outa.WQ()} {(x.outf + @"\").WQ()}");
                         vm.Update(Replace(ref totaldelta, x.inf, outa, ".rar"), Interlocked.Increment(ref counter));
                     }).ToArray();
                     break;
