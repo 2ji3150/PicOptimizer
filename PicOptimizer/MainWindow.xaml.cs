@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -10,7 +11,10 @@ using System.Windows;
 
 namespace PicOptimizer {
     public partial class MainWindow : Window {
-        public MainWindow() => InitializeComponent();
+        public MainWindow() {
+            InitializeComponent();
+            for (int i = 1; i <= Environment.ProcessorCount; i++) cb.Add(i);
+        }
         const string cwebp = @"/C D:\FIONE\bin\libwebp\cwebp -quiet -mt -lossless -m 6 -q 100";
         const string dwebp = @"/C D:\FIONE\bin\libwebp\dwebp -quiet -mt";
         const string mozjpeg = @"/C D:\FIONE\bin\mozjpeg\jpegtran-static -copy none";
@@ -20,6 +24,13 @@ namespace PicOptimizer {
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".bmp", ".png", ".tif", "tiff", ".webp" },
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".webp" },
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".rar", ".7z" }
+        };
+        ConcurrentBag<int> cb = new ConcurrentBag<int>();
+        string[] outext = new string[] { ".jpg", ".webp", ".png" };
+        Func<string, string, string>[] GetArgs = new Func<string, string, string>[] {
+            (inf,outf)=> $"{mozjpeg} -outfile {outf} {inf.WQ()}",
+            (inf,outf)=>  $"{cwebp} {inf.WQ()} -o {outf}",
+            (inf,outf)=> $"{dwebp} {inf.WQ()} -o {outf}"
         };
         SemaphoreSlim sem = new SemaphoreSlim(Environment.ProcessorCount);
         SemaphoreSlim mut = new SemaphoreSlim(1);
@@ -32,7 +43,7 @@ namespace PicOptimizer {
             Task[] tasks;
             long totaldelta = 0;
             int counter = 0;
-            string tmp_now = Path.Combine("TEMP", DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss"));
+            string tmp_now = Path.Combine("TMP", DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss"));
             Directory.CreateDirectory(tmp_now);
 
             #region ローカル関数
@@ -51,14 +62,13 @@ namespace PicOptimizer {
                 }
             }
 
-            int i = 0;
-            IEnumerable<(string inf, string outf)> GetFiles() {
+
+            IEnumerable<string> GetFiles() {
                 bool checkext(string file) => exts[vm.Index.Value].Contains(Path.GetExtension(file));
-                string outf() => Path.Combine(tmp_now, (++i).ToString());
                 foreach (string d in (string[])e.Data.GetData(DataFormats.FileDrop)) {
                     if (File.GetAttributes(d).HasFlag(FileAttributes.Directory)) {
-                        foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).AsParallel().Where(f => checkext(f))) yield return (f, outf());
-                    } else if (checkext(d)) yield return (d, outf());
+                        foreach (string f in Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories).AsParallel().Where(f => checkext(f))) yield return f;
+                    } else if (checkext(d)) yield return d;
                 }
             }
 
@@ -91,21 +101,33 @@ namespace PicOptimizer {
             #endregion
 
             switch (vm.Index.Value) {
-                default://MozJpeg
-                    tasks = GetFiles().Select(x => TaskAsync($"{mozjpeg} -outfile {x.outf.WQ()} {x.inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".jpg"), Interlocked.Increment(ref counter)))).ToArray();
-                    break;
-                case 1:// cwebp
-                    tasks = GetFiles().Select(x => TaskAsync($"{cwebp} {x.inf.WQ()} -o {x.outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".webp"), Interlocked.Increment(ref counter)))).ToArray();
-                    break;
-                case 2:// dwebp
-                    tasks = GetFiles().Select(x => TaskAsync($"{dwebp} {x.inf.WQ()} -o {x.outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, x.inf, x.outf, ".png"), Interlocked.Increment(ref counter)))).ToArray();
+                default:
+                    tasks = GetFiles().Select(async f => {
+                        await sem.WaitAsync();
+                        cb.TryTake(out int num);
+                        string outf = Path.Combine("TMP", num.ToString());
+                        Process p = Process.Start(new ProcessStartInfo("cmd.exe", GetArgs[vm.Index.Value](f, outf)) { UseShellExecute = false, CreateNoWindow = true });
+                        p.EnableRaisingEvents = true;
+                        TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+                        p.Exited += (s, a) => {
+                            vm.Update(Replace(ref totaldelta, f, outf, outext[vm.Index.Value]), Interlocked.Increment(ref counter));
+                            cb.Add(num);
+                            sem.Release();
+                            p.Dispose();
+                            tcs.TrySetResult(true);
+                        };
+                        await tcs.Task;
+                    }).ToArray();
                     break;
                 case 3:// manga
                     int gindex = 0;
-                    tasks = GetFiles().Select(async x => {
-                        await TaskAsyncMut($"{unrar} {x.inf.WQ()} {(x.outf + @"\").WQ()}");
+                    tasks = GetFiles().Select(async f => {
+                        int i = 0;
+                        string outdir = Path.Combine("TMP", (++i).ToString());
+                        string outrar = outdir + ".rar";
+                        await TaskAsyncMut($"{unrar} {f.WQ()} {(outdir + @"\")}");
                         List<Task> optimizetasklist = new List<Task>();
-                        foreach (string inf in Directory.EnumerateFiles(x.outf, "*.*", SearchOption.AllDirectories)) {
+                        foreach (string inf in Directory.EnumerateFiles(outdir, "*.*", SearchOption.AllDirectories)) {
                             string outf;
                             string ext = Path.GetExtension(inf);
                             if (exts[0].Contains(ext)) {
@@ -117,9 +139,8 @@ namespace PicOptimizer {
                             }
                         }
                         await Task.WhenAll(optimizetasklist);
-                        string outa = x.outf + ".rar";
-                        await TaskAsyncMut($"{rar} {outa.WQ()} {(x.outf + @"\").WQ()}");
-                        vm.Update(Replace(ref totaldelta, x.inf, outa, ".rar"), Interlocked.Increment(ref counter));
+                        await TaskAsyncMut($"{rar} {outrar.WQ()} {(outdir + @"\")}");
+                        vm.Update(Replace(ref totaldelta, f, outrar, ".rar"), Interlocked.Increment(ref counter));
                     }).ToArray();
                     break;
             }
