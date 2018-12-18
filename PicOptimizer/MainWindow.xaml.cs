@@ -43,8 +43,7 @@ namespace PicOptimizer {
             Task[] tasks;
             long totaldelta = 0;
             int counter = 0;
-            string tmp_now = Path.Combine("TMP", DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss"));
-            Directory.CreateDirectory(tmp_now);
+            Directory.CreateDirectory("TMP");
 
             #region ローカル関数
             long Replace(ref long td, string file, string tempfile, string ext) {
@@ -131,10 +130,10 @@ namespace PicOptimizer {
                             string outf;
                             string ext = Path.GetExtension(inf);
                             if (exts[0].Contains(ext)) {
-                                outf = Path.Combine(tmp_now, "g" + Interlocked.Increment(ref gindex).ToString());
+                                outf = Path.Combine("TMP", "g" + Interlocked.Increment(ref gindex).ToString());
                                 optimizetasklist.Add(TaskAsync($"{mozjpeg} -outfile {outf.WQ()} {inf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".jpg"), counter)));
                             } else if (exts[1].Contains(ext)) {
-                                outf = Path.Combine(tmp_now, "g" + Interlocked.Increment(ref gindex).ToString());
+                                outf = Path.Combine("TMP", "g" + Interlocked.Increment(ref gindex).ToString());
                                 optimizetasklist.Add(TaskAsync($"{cwebp} {inf.WQ()} -o {outf.WQ()}").ContinueWith(_ => vm.Update(Replace(ref totaldelta, inf, outf, ".webp"), counter)));
                             }
                         }
@@ -149,7 +148,7 @@ namespace PicOptimizer {
                 return;
             }
             await Task.WhenAll(tasks);
-            Directory.Delete(tmp_now, true);
+            Directory.Delete("TMP", true);
             sw.Stop();
             TimeSpan ts = sw.Elapsed;
             SystemSounds.Asterisk.Play();
